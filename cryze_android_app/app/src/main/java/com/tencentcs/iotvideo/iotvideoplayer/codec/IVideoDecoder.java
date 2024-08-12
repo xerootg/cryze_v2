@@ -1,0 +1,11 @@
+package com.tencentcs.iotvideo.iotvideoplayer.codec;
+/* loaded from: classes2.dex */
+public interface IVideoDecoder {
+    void init(AVHeader aVHeader);
+
+    int receive_frame(AVData aVData);
+
+    void release();
+
+    int send_packet(AVData aVData);
+}

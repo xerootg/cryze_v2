@@ -1,0 +1,26 @@
+# secrets
+.env
+
+# .NET
+*.dll
+*.exe
+*.pdb
+*.user
+*.suo
+*.cache
+*.log
+bin/
+obj/
+TestResults/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyz
+*.pyw
+*.pyi
+*.egg-info/
+dist/
+build/

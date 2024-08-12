@@ -1,0 +1,39 @@
+version: '3'
+
+networks:
+  cryze_network:
+    driver: bridge
+
+services:
+  cryze_api:
+    networks:
+      - cryze_network
+    build:
+      context: ./cryze_api
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+    # volumes:
+    #   - ./cryze_api/python:/app/python # used for development
+    env_file:
+      - .env
+
+  cryze_android_app:
+    networks:
+      - cryze_network
+    build:
+      context: ./cryze_android_app
+      dockerfile: Dockerfile
+    privileged: true
+    ports:
+      - 5555:5555
+      - 5001:5001
+    entrypoint: # need to override the entrypoint to run the app on arch, see the redroid docs
+      - /init
+      - qemu=1
+      - androidboot.hardware=redroid
+      - androidboot.use_memfd=1
+      - androidboot.redroid_net_ndns=1
+      - androidboot.redroid_net_dns1=127.0.0.11
+    # volumes:
+    #    - ./app/build/outputs/apk/debug/app-debug.apk:/app/app.apk # used for development
