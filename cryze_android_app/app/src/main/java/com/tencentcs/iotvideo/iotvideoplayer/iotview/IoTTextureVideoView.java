@@ -8,7 +8,7 @@ import com.tencentcs.iotvideo.iotvideoplayer.IVideoGestureRender;
 import com.tencentcs.iotvideo.iotvideoplayer.render.AudioRender;
 import com.tencentcs.iotvideo.iotvideoplayer.render.TextureViewRender;
 import com.tencentcs.iotvideo.utils.LogUtils;
-/* loaded from: classes2.dex */
+
 public class IoTTextureVideoView extends TextureView implements IIoTVideoView {
     private static final String TAG = "IoTTextureVideoView";
     public AudioRender mAudioRender;

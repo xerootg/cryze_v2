@@ -58,7 +58,7 @@ public final class IoTATimeStampHelper {
         if (aVHeader == null) {
             return 0;
         }
-        return aVHeader.getInteger(AVHeader.KEY_AUDIO_MODE, 0);
+        return aVHeader.getInteger(AVHeader.KEY_AUDIO_MODE, AVConstants.AUDIO_SOUND_MODE_MONO);
     }
 
     public static float getFrameDuration(AVHeader aVHeader) {

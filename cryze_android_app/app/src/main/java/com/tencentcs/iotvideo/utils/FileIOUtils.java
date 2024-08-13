@@ -16,7 +16,8 @@ public final class FileIOUtils {
             return writeFileFromBytesByStream(getFileByPath(str), bArr, false);
         } catch (IOException e) {
             LogUtils.e(TAG, "Unable to writeFileFromBytesByStream: " + str);
-            return false;        }
+            return false;
+        }
     }
 
     public static boolean writeFileFromBytesByStream(String str, byte[] bArr, boolean z10) {
@@ -38,6 +39,15 @@ public final class FileIOUtils {
 
     public static boolean writeFileFromBytesByStream(File file, byte[] data, boolean append) throws IOException {
         FileOutputStream fileOutputStream = null;
+
+        // make sure the directory exists
+        File parentFile = file.getParentFile();
+        if (!parentFile.exists()) {
+            if (!parentFile.mkdirs()){
+                LogUtils.e(TAG, "Unable to create directory: " + parentFile.getAbsolutePath());
+                return false;
+            }
+        }
 
         try {
             fileOutputStream = new FileOutputStream(file, append);

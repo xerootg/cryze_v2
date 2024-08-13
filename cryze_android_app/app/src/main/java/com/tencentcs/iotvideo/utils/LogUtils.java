@@ -7,7 +7,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import com.tencentcs.iotvideo.mars.xlog.Xlog;
 import com.tencentcs.iotvideo.BuildConfig;
-/* loaded from: classes2.dex */
+
 public class LogUtils {
     private static final int LEVEL_DEBUG = 1;
     private static final int LEVEL_ERROR = 4;
@@ -55,27 +55,27 @@ public class LogUtils {
 
     }
 
-    public static String composeLogInfo(Object... objArr) {
-        if (objArr == null) {
+    public static String composeLogInfo(Object... logInfo) {
+        if (logInfo == null) {
             return "";
         }
         StringBuilder sb2 = new StringBuilder();
-        for (Object obj : objArr) {
+        for (Object obj : logInfo) {
             sb2.append(obj);
         }
         return sb2.toString();
     }
 
-    public static void d(String str, String str2) {
-        d(str, str2, null);
+    public static void d(String tag, String message) {
+        d(tag, message, null);
     }
 
-    public static void e(String str, String str2) {
-        e(str, str2, null);
+    public static void e(String tag, String message) {
+        e(tag, message, null);
     }
 
-    public static void f(String str, String str2) {
-        f(str, str2, null);
+    public static void f(String tag, String message) {
+        f(tag, message, null);
     }
 
     public static void flush(boolean z10) {
@@ -84,84 +84,82 @@ public class LogUtils {
 
     public static int getLogLevel() {
 
-        return 6;
+        return LEVEL_NONE;
     }
 
     public static String getSysInfo() {
         return SYS_INFO;
     }
 
-    public static void i(String str, String str2) {
-        i(str, str2, null);
+    public static void i(String tag, String message) {
+        i(tag, message, null);
     }
 
 
-    public static void v(String str, String str2) {
-        v(str, str2, null);
+    public static void v(String tag, String message) {
+        v(tag, message, null);
     }
 
-    public static void w(String str, String str2) {
-        w(str, str2, null);
+    public static void w(String tag, String message) {
+        w(tag, message, null);
     }
 
-    public static void d(String str, String str2, Object... objArr) {
-            if (objArr != null) {
-                str2 = String.format(str2, objArr);
+    public static void d(String tag, String message, Object... stringArgs) {
+            if (stringArgs != null) {
+                message = String.format(message, stringArgs);
             }
-            if (str2 == null) {
-                str2 = "";
+            if (message == null) {
+                message = "";
             }
-            Log.d(str, str2);
+            Log.d(tag, message);
     }
 
-    public static void e(String str, String str2, Object... objArr) {
-            if (objArr != null) {
-                str2 = String.format(str2, objArr);
+    public static void e(String tag, String message, Object... stringArgs) {
+            if (stringArgs != null) {
+                message = String.format(message, stringArgs);
             }
-            if (str2 == null) {
-                str2 = "";
+            if (message == null) {
+                message = "";
             }
-            Log.e(str, str2);
+            Log.e(tag, message);
     }
 
-    public static void f(String str, String str2, Object... objArr) {
+    public static void f(String tag, String message, Object... stringArgs) {
         if (logImp != null) {
-            if (objArr != null) {
-                str2 = String.format(str2, objArr);
+            if (stringArgs != null) {
+                message = String.format(message, stringArgs);
             }
-//            logImp.logF(str, "", "", 0, Process.myPid(), Process.myTid(), Looper.getMainLooper().getThread().getId(), str2);
-            Log.d(str, str2);
+            Log.d(tag, message);
         }
     }
 
-    public static void i(String str, String str2, Object... objArr) {
-            if (objArr != null) {
-                str2 = String.format(str2, objArr);
+    public static void i(String tag, String message, Object... stringArgs) {
+            if (stringArgs != null) {
+                message = String.format(message, stringArgs);
             }
-            if (str2 == null) {
-                str2 = "";
+            if (message == null) {
+                message = "";
             }
-            Log.i(str, str2);
+            Log.i(tag, message);
     }
 
-    public static void v(String str, String str2, Object... objArr) {
-            if (objArr != null) {
-                str2 = String.format(str2, objArr);
+    public static void v(String tag, String message, Object... stringArgs) {
+            if (stringArgs != null) {
+                message = String.format(message, stringArgs);
             }
-            if (str2 == null) {
-                str2 = "";
+            if (message == null) {
+                message = "";
             }
-            Log.v(str, str2);
+            Log.v(tag, message);
     }
 
-    public static void w(String str, String str2, Object... objArr) {
-            if (objArr != null) {
-                str2 = String.format(str2, objArr);
+    public static void w(String tag, String message, Object... stringArgs) {
+            if (stringArgs != null) {
+                message = String.format(message, stringArgs);
             }
-            if (str2 == null) {
-                str2 = "";
+            if (message == null) {
+                message = "";
             }
-            Log.w(str, str2);
-
+            Log.w(tag, message);
     }
 }

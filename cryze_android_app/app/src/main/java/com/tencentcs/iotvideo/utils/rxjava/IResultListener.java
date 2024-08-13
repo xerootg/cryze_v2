@@ -1,9 +1,9 @@
 package com.tencentcs.iotvideo.utils.rxjava;
-/* loaded from: classes2.dex */
+
 public interface IResultListener<T> {
-    void onError(int i10, String str);
+    void onError(int errorCode, String message);
 
     void onStart();
 
-    void onSuccess(T t10);
+    void onSuccess(T success);
 }

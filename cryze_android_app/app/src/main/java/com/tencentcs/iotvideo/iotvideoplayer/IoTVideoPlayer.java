@@ -447,30 +447,30 @@ public class IoTVideoPlayer implements IIoTVideoPlayer {
         changeDefinition(b, true, iResultListener);
     }
 
-    public void changeDefinition(final byte b, final boolean z, final IResultListener<Boolean> iResultListener) {
-        LogUtils.i(TAG, String.format("changeDefinition nativeObject:0x%s; definition:%d", Long.toHexString(this.nativeObject), Byte.valueOf(b)));
-        this.currentDefinition = b;
+    public void changeDefinition(final byte definition, final boolean z, final IResultListener<Boolean> iResultListener) {
+        LogUtils.i(TAG, String.format("changeDefinition nativeObject:0x%s; definition:%d", Long.toHexString(this.nativeObject), Byte.valueOf(definition)));
+        this.currentDefinition = definition;
         if (!isConnectedDevice()) {
             LogUtils.i(TAG, "changeDefinition ret:disconnect with device, waiting connecting dev, player status:" + getPlayState());
             if (iResultListener != null) {
                 iResultListener.onSuccess(Boolean.TRUE);
             }
             if (2 == getPlayState()) {
-                this.waitSendDefinition = b;
+                this.waitSendDefinition = definition;
                 LogUtils.i(TAG, "changeDefinition is connecting device");
             }
-            reviseNativeDefinition(b);
+            reviseNativeDefinition(definition);
             return;
         }
         this.waitSendDefinition = (byte) -1;
         IResultListener<byte[]> iResultListener2 = new IResultListener<byte[]>() { // from class: com.tencentcs.iotvideo.iotvideoplayer.IoTVideoPlayer.16
             @Override // com.tencentcs.iotvideo.utils.rxjava.IResultListener
-            public void onError(int i, String str) {
+            public void onError(int errorCode, String message) {
                 IResultListener iResultListener3 = iResultListener;
                 if (iResultListener3 != null && z) {
-                    iResultListener3.onError(i, str);
+                    iResultListener3.onError(errorCode, message);
                 }
-                LogUtils.i(IoTVideoPlayer.TAG, "changeDefinition onError definition: " + b + "; errorcode: " + i + "; errormsg: " + str);
+                LogUtils.i(IoTVideoPlayer.TAG, "changeDefinition onError definition: " + definition + "; errorcode: " + errorCode + "; errormsg: " + message);
             }
 
             @Override // com.tencentcs.iotvideo.utils.rxjava.IResultListener
@@ -482,27 +482,27 @@ public class IoTVideoPlayer implements IIoTVideoPlayer {
             }
 
             @Override // com.tencentcs.iotvideo.utils.rxjava.IResultListener
-            public void onSuccess(byte[] bArr) {
+            public void onSuccess(byte[] success) {
                 if (!z) {
                     LogUtils.i(IoTVideoPlayer.TAG, "changeDefinition onSuccess, haveNotifyFromDev:" + z);
-                } else if (bArr != null && bArr.length > 0 && 255 != (bArr[0] & 255)) {
+                } else if (success != null && success.length > 0 && 255 != (success[0] & 255)) {
                     IResultListener iResultListener3 = iResultListener;
                     if (iResultListener3 != null) {
                         iResultListener3.onSuccess(Boolean.TRUE);
                     }
-                    reviseNativeDefinition(b);
-                    LogUtils.i(IoTVideoPlayer.TAG, "changeDefinition onSuccess definition:" + b);
+                    reviseNativeDefinition(definition);
+                    LogUtils.i(IoTVideoPlayer.TAG, "changeDefinition onSuccess definition:" + definition);
                 } else {
                     IResultListener iResultListener4 = iResultListener;
                     if (iResultListener4 != null) {
                         iResultListener4.onError(IoTVideoError.ERROR_RESULT, null);
                     }
-                    LogUtils.i(IoTVideoPlayer.TAG, "changeDefinition error:" + Arrays.toString(bArr));
+                    LogUtils.i(IoTVideoPlayer.TAG, "changeDefinition error:" + Arrays.toString(success));
                 }
             }
         };
         this.videoSizeMap.put(Byte.valueOf(this.currentDefinition), null);
-        sendInnerUserData((byte) 5, new byte[]{b}, iResultListener2);
+        sendInnerUserData((byte) 5, new byte[]{definition}, iResultListener2);
         if (z) {
             return;
         }

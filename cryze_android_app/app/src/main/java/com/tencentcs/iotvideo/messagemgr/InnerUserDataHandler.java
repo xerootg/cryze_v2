@@ -4,7 +4,7 @@ import android.text.TextUtils;
 import com.tencentcs.iotvideo.IoTVideoError;
 import com.tencentcs.iotvideo.utils.ByteUtils;
 import com.tencentcs.iotvideo.utils.LogUtils;
-import java.io.UnsupportedEncodingException;
+
 /* loaded from: classes2.dex */
 public class InnerUserDataHandler {
     private static final String TAG = "InnerUserDataHandler";
@@ -16,7 +16,7 @@ public class InnerUserDataHandler {
         int i10;
         LogUtils.i(TAG, "onDownloadFileError");
         if (bArr != null && bArr.length >= 12) {
-            long bytesTolong = ByteUtils.bytesTolong(bArr, 0);
+            long bytesTolong = ByteUtils.bytesToLong(bArr, 0);
             int bytesToInt = ByteUtils.bytesToInt(bArr, 8);
             if (bytesToInt != 1) {
                 if (bytesToInt != 2) {
@@ -50,7 +50,7 @@ public class InnerUserDataHandler {
     private void parseDownloadFileInfo(byte[] bArr) {
         String str;
         if (bArr != null && bArr.length >= 18) {
-            long bytesTolong = ByteUtils.bytesTolong(bArr, 0);
+            long bytesTolong = ByteUtils.bytesToLong(bArr, 0);
             int bytesToInt = ByteUtils.bytesToInt(bArr, 8);
             int bytesToInt2 = ByteUtils.bytesToInt(bArr, 12);
             short byte2ToShort = ByteUtils.byte2ToShort(bArr, 16);
@@ -132,7 +132,7 @@ public class InnerUserDataHandler {
                     LogUtils.e(TAG, "IVBuildInCmd_PlaybackFinished data length is invalid");
                     return;
                 } else {
-                    long bytesTolong = ByteUtils.bytesTolong(bArr, 8);
+                    long bytesTolong = ByteUtils.bytesToLong(bArr, 8);
                     LogUtils.i(TAG, "handleInnerUserData file finished:" + bytesTolong);
                     IPlaybackInnerUserDataLister iPlaybackInnerUserDataLister = this.mPlaybackInnerUserDataLister;
                     if (iPlaybackInnerUserDataLister != null) {
@@ -145,7 +145,7 @@ public class InnerUserDataHandler {
                 LogUtils.e(TAG, "IVBuildInCmd_PlaybackStartTime data length is invalid");
                 return;
             } else {
-                long bytesTolong2 = ByteUtils.bytesTolong(bArr, 8);
+                long bytesTolong2 = ByteUtils.bytesToLong(bArr, 8);
                 LogUtils.i(TAG, "handleInnerUserData file startTime:" + bytesTolong2);
                 IPlaybackInnerUserDataLister iPlaybackInnerUserDataLister2 = this.mPlaybackInnerUserDataLister;
                 if (iPlaybackInnerUserDataLister2 != null) {

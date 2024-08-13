@@ -9,7 +9,7 @@ import com.tencentcs.iotvideo.utils.ByteUtils;
 import java.nio.ByteBuffer;
 
 /* loaded from: classes11.dex */
-class MediaConstant {
+public class MediaConstant {
     public static final int AUDIO_TYPE_G711A = 1;
     public static final int AUDIO_TYPE_G711U = 2;
     public static final int AUDIO_TYPE_PCM = 0;
@@ -31,47 +31,42 @@ class MediaConstant {
     public static final int VIDEO_TYPE_MPEG4 = 2;
     public static final int VIDEO_TYPE_NONE = 0;
 
-    /* loaded from: classes11.dex */
     public enum DecodeState {
         Init,
         Ready,
         Release
     }
 
-    /* loaded from: classes11.dex */
     public static class MediaCodecInputBuffer {
         public ByteBuffer inputBuffer;
         public long presentationTimeUs;
         public int size;
 
-        public MediaCodecInputBuffer(ByteBuffer byteBuffer, int i10, long j10) {
+        public MediaCodecInputBuffer(ByteBuffer byteBuffer, int size, long presentationTimeUs) {
             this.inputBuffer = byteBuffer;
-            this.size = i10;
-            this.presentationTimeUs = j10;
+            this.size = size;
+            this.presentationTimeUs = presentationTimeUs;
         }
     }
 
-    /* loaded from: classes11.dex */
     public static class MediaCodecOutputBuffer {
         public int bufferId;
         public MediaCodec.BufferInfo bufferInfo;
         public ByteBuffer outputBuffer;
 
-        public MediaCodecOutputBuffer(ByteBuffer byteBuffer, int i10, MediaCodec.BufferInfo bufferInfo) {
+        public MediaCodecOutputBuffer(ByteBuffer byteBuffer, int bufferId, MediaCodec.BufferInfo bufferInfo) {
             this.outputBuffer = byteBuffer;
-            this.bufferId = i10;
+            this.bufferId = bufferId;
             this.bufferInfo = bufferInfo;
         }
     }
 
-    /* loaded from: classes11.dex */
     public enum MediaType {
         Video,
         Audio,
         Subtitles
     }
 
-    /* loaded from: classes11.dex */
     public interface OnMediaCodecStateChangedListener {
         void onInit(MediaType mediaType);
 
@@ -83,30 +78,39 @@ class MediaConstant {
     MediaConstant() {
     }
 
+    // Get a ByteBuffer containing the AAC Codec Specific Data
     public static ByteBuffer getAacCsd0(AVHeader aVHeader) {
-        short sample2MediaCodecIndex = (short) (((aVHeader.getInteger(AVHeader.KEY_AUDIO_MODE, 0) == 0 ? 1 : 2) << 3) | ((short) ((sample2MediaCodecIndex(aVHeader.getInteger(AVHeader.KEY_AUDIO_SAMPLE_RATE, 8000)) << 7) | ((short) 4096))));
-        ByteBuffer put = ByteBuffer.allocate(2).put(new byte[]{(byte) ((sample2MediaCodecIndex >> 8) & 255), (byte) (sample2MediaCodecIndex & 255)});
+        short sample2MediaCodecIndex = (short) (((aVHeader.getInteger(AVHeader.KEY_AUDIO_MODE, AVConstants.AUDIO_SOUND_MODE_MONO) == AVConstants.AUDIO_SOUND_MODE_MONO ? AVConstants.AUDIO_SOUND_MODE_STEREO : AVConstants.AUDIO_SOUND_MODE_NONE) << 3) |
+                ((short) ((sample2MediaCodecIndex(aVHeader.getInteger(AVHeader.KEY_AUDIO_SAMPLE_RATE, AVConstants.AUDIO_SAMPLE_RATE_8000)) << 7) | 4096)));
+        ByteBuffer put = ByteBuffer.allocate(2).put(new byte[]{
+                (byte) ((sample2MediaCodecIndex >> 8) & 255),
+                (byte) (sample2MediaCodecIndex & 255)
+        });
         put.position(0);
         return put;
     }
 
     public static String getAudioMineByAVHeader(AVHeader aVHeader) throws IllegalArgumentException {
         int integer = aVHeader.getInteger(AVHeader.KEY_AUDIO_TYPE, -1);
-        if (integer == 4) {
+        if (integer == AUDIO_TYPE_PT_AAC) {
             return MimeTypes.AUDIO_AAC;
         }
-        if (integer == 5) {
+        if (integer == AUDIO_TYPE_PT_AMR) {
             return MimeTypes.AUDIO_AMR_NB;
         }
+        if (integer == AUDIO_TYPE_G711U)
+            return MimeTypes.AUDIO_MLAW;
+        if (integer == AUDIO_TYPE_G711A)
+            return MimeTypes.AUDIO_ALAW;
         throw new IllegalArgumentException("not support this media type");
     }
 
     public static String getVideoMimeByAVHeader(AVHeader aVHeader) throws IllegalArgumentException {
         int integer = aVHeader.getInteger(AVHeader.KEY_VIDEO_TYPE, -1);
-        if (integer == 1) {
+        if (integer == VIDEO_TYPE_H264) {
             return MimeTypes.VIDEO_H264;
         }
-        if (integer == 5) {
+        if (integer == VIDEO_TYPE_H265) {
             return MimeTypes.VIDEO_H265;
         }
         throw new IllegalArgumentException("not support this media type");
@@ -118,30 +122,30 @@ class MediaConstant {
         return bytesToInt == 16777216 && (i10 == 5 || i10 == 7);
     }
 
-    public static int sample2MediaCodecIndex(int i10) {
-        switch (i10) {
-            case 8000:
+    public static int sample2MediaCodecIndex(int sampleRate) {
+        switch (sampleRate) {
+            case AVConstants.AUDIO_SAMPLE_RATE_8000:
             default:
                 return 11;
-            case 11025:
+            case AVConstants.AUDIO_SAMPLE_RATE_11025:
                 return 10;
             case AVConstants.AUDIO_SAMPLE_RATE_12000 /* 12000 */:
                 return 9;
-            case 16000:
+            case AVConstants.AUDIO_SAMPLE_RATE_16000:
                 return 8;
             case AVConstants.AUDIO_SAMPLE_RATE_22050 /* 22050 */:
                 return 7;
             case AVConstants.AUDIO_SAMPLE_RATE_24000 /* 24000 */:
                 return 6;
-            case 32000:
+            case AVConstants.AUDIO_SAMPLE_RATE_32000:
                 return 5;
             case AVConstants.AUDIO_SAMPLE_RATE_44100 /* 44100 */:
                 return 4;
-            case 48000:
+            case AVConstants.AUDIO_SAMPLE_RATE_48000:
                 return 3;
             case AVConstants.AUDIO_SAMPLE_RATE_64000 /* 64000 */:
                 return 2;
-            case 88200:
+            case AVConstants.AUDIO_SAMPLE_RATE_88200:
                 return 1;
             case AVConstants.AUDIO_SAMPLE_RATE_96000 /* 96000 */:
                 return 0;

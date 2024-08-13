@@ -60,7 +60,7 @@ public class PlaybackExistDateMessage extends DataMessage {
             LogUtils.i(TAG, "play list is null");
             return;
         }
-        long bytesTolong = ByteUtils.bytesTolong(bArr, 17);
+        long bytesTolong = ByteUtils.bytesToLong(bArr, 17);
         int i11 = bArr[25];
         int i12 = (i11 * 17) + 26;
         if (bArr.length < i12) {
@@ -83,7 +83,7 @@ public class PlaybackExistDateMessage extends DataMessage {
             }
         } else if (3 == b10) {
             while (i10 < bytesToInt) {
-                this.playbackList.add(new DateListNode(ByteUtils.bytesTolong(bArr, (i10 * 13) + i12) + bytesTolong));
+                this.playbackList.add(new DateListNode(ByteUtils.bytesToLong(bArr, (i10 * 13) + i12) + bytesTolong));
                 i10++;
             }
         }

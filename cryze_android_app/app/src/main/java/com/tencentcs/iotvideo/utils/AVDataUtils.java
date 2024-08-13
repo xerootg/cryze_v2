@@ -8,84 +8,92 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-/* loaded from: classes2.dex */
+
 public class AVDataUtils {
     private static final boolean DEBUG = false;
     private static final String TAG = "AVDataUtils";
 
     public static boolean checkAVHeaderChange(AVHeader aVHeader, AVHeader aVHeader2) {
-        if (aVHeader.getInteger(AVHeader.KEY_AUDIO_SAMPLE_RATE, 0) == aVHeader2.getInteger(AVHeader.KEY_AUDIO_SAMPLE_RATE, 0) && aVHeader.getInteger(AVHeader.KEY_VIDEO_TYPE, 0) == aVHeader2.getInteger(AVHeader.KEY_VIDEO_TYPE, 0) && aVHeader.getInteger(AVHeader.KEY_WIDTH, 0) == aVHeader2.getInteger(AVHeader.KEY_WIDTH, 0) && aVHeader.getInteger(AVHeader.KEY_HEIGHT, 0) == aVHeader2.getInteger(AVHeader.KEY_HEIGHT, 0) && aVHeader.getInteger(AVHeader.KEY_FRAME_RATE, 0) == aVHeader2.getInteger(AVHeader.KEY_FRAME_RATE, 0) && aVHeader.getInteger(AVHeader.KEY_PLAYBACK_SPEED, 0) == aVHeader2.getInteger(AVHeader.KEY_PLAYBACK_SPEED, 0) && aVHeader.getInteger(AVHeader.KEY_BIT_RATE, 0) == aVHeader2.getInteger(AVHeader.KEY_BIT_RATE, 0) && aVHeader.getInteger(AVHeader.KEY_AUDIO_TYPE, 0) == aVHeader2.getInteger(AVHeader.KEY_AUDIO_TYPE, 0) && aVHeader.getInteger(AVHeader.KEY_AUDIO_CODEC_OPTION, 0) == aVHeader2.getInteger(AVHeader.KEY_AUDIO_CODEC_OPTION, 0) && aVHeader.getInteger(AVHeader.KEY_AUDIO_MODE, 0) == aVHeader2.getInteger(AVHeader.KEY_AUDIO_MODE, 0) && aVHeader.getInteger(AVHeader.KEY_AUDIO_BIT_WIDTH, 0) == aVHeader2.getInteger(AVHeader.KEY_AUDIO_BIT_WIDTH, 0) && aVHeader.getInteger(AVHeader.KEY_AUDIO_SAMPLE_NUM_PERFRAME, 0) == aVHeader2.getInteger(AVHeader.KEY_AUDIO_SAMPLE_NUM_PERFRAME, 0)) {
-            return false;
-        }
-        return true;
+        return aVHeader.getInteger(AVHeader.KEY_AUDIO_SAMPLE_RATE, 0) != aVHeader2.getInteger(AVHeader.KEY_AUDIO_SAMPLE_RATE, 0) ||
+                aVHeader.getInteger(AVHeader.KEY_VIDEO_TYPE, 0) != aVHeader2.getInteger(AVHeader.KEY_VIDEO_TYPE, 0) ||
+                aVHeader.getInteger(AVHeader.KEY_WIDTH, 0) != aVHeader2.getInteger(AVHeader.KEY_WIDTH, 0) ||
+                aVHeader.getInteger(AVHeader.KEY_HEIGHT, 0) != aVHeader2.getInteger(AVHeader.KEY_HEIGHT, 0) ||
+                aVHeader.getInteger(AVHeader.KEY_FRAME_RATE, 0) != aVHeader2.getInteger(AVHeader.KEY_FRAME_RATE, 0) ||
+                aVHeader.getInteger(AVHeader.KEY_PLAYBACK_SPEED, 0) != aVHeader2.getInteger(AVHeader.KEY_PLAYBACK_SPEED, 0) ||
+                aVHeader.getInteger(AVHeader.KEY_BIT_RATE, 0) != aVHeader2.getInteger(AVHeader.KEY_BIT_RATE, 0) ||
+                aVHeader.getInteger(AVHeader.KEY_AUDIO_TYPE, 0) != aVHeader2.getInteger(AVHeader.KEY_AUDIO_TYPE, 0) ||
+                aVHeader.getInteger(AVHeader.KEY_AUDIO_CODEC_OPTION, 0) != aVHeader2.getInteger(AVHeader.KEY_AUDIO_CODEC_OPTION, 0) ||
+                aVHeader.getInteger(AVHeader.KEY_AUDIO_MODE, 0) != aVHeader2.getInteger(AVHeader.KEY_AUDIO_MODE, 0) ||
+                aVHeader.getInteger(AVHeader.KEY_AUDIO_BIT_WIDTH, 0) != aVHeader2.getInteger(AVHeader.KEY_AUDIO_BIT_WIDTH, 0) ||
+                aVHeader.getInteger(AVHeader.KEY_AUDIO_SAMPLE_NUM_PERFRAME, 0) != aVHeader2.getInteger(AVHeader.KEY_AUDIO_SAMPLE_NUM_PERFRAME, 0);
     }
 
-    public static Map<Long, AVData> createRegionAVDataByAVHeader(AVHeader aVHeader, Long[] lArr) {
-        if (aVHeader == null) {
+    public static Map<Long, AVData> createRegionAVDataByAVHeader(AVHeader avHeader, Long[] regionIds) {
+        if (avHeader == null) {
             LogUtils.e(TAG, "createRegionAVDataByAVHeader(avHeader), avHeader == null");
             return null;
         }
-        VideoRenderInfo videoRenderInfo = aVHeader.getVideoRenderInfo();
+        VideoRenderInfo videoRenderInfo = avHeader.getVideoRenderInfo();
         if (videoRenderInfo == null) {
             LogUtils.e(TAG, "createRegionAVDataByAVHeader(avHeader), renderInfo == null");
             return null;
         }
-        int regionListSize = aVHeader.getVideoRenderInfo().getRegionListSize();
+        int regionListSize = videoRenderInfo.getRegionListSize();
         if (regionListSize <= 0) {
             LogUtils.e(TAG, "createRegionAVDataByAVHeader(avHeader), regionNum <= 0");
             return null;
         }
-        if (lArr == null || lArr.length <= 0) {
-            lArr = new Long[regionListSize];
-            for (int i10 = 0; i10 < regionListSize; i10++) {
-                lArr[i10] = Long.valueOf(videoRenderInfo.getRenderRegionByIndex(0).getCameraId());
+        if (regionIds == null || regionIds.length <= 0) {
+            regionIds = new Long[regionListSize];
+            for (int i = 0; i < regionListSize; i++) {
+                regionIds[i] = videoRenderInfo.getRenderRegionByIndex(0).getCameraId();
             }
         }
-        HashMap hashMap = new HashMap();
-        for (Long l10 : lArr) {
-            CameraRenderRegion renderRegionById = videoRenderInfo.getRenderRegionById(l10.longValue());
-            if (renderRegionById != null) {
-                AVData aVData = new AVData();
-                int height = renderRegionById.getHeight() * renderRegionById.getWidth();
-                aVData.size = height;
-                aVData.data = ByteBuffer.allocateDirect(height);
-                int i11 = aVData.size / 4;
-                aVData.size1 = i11;
-                aVData.data1 = ByteBuffer.allocateDirect(i11);
-                int i12 = aVData.size / 4;
-                aVData.size2 = i12;
-                aVData.data2 = ByteBuffer.allocateDirect(i12);
-                hashMap.put(l10, aVData);
+        HashMap<Long, AVData> regionAVDataMap = new HashMap<>();
+        for (Long regionId : regionIds) {
+            CameraRenderRegion renderRegion = videoRenderInfo.getRenderRegionById(regionId);
+            if (renderRegion != null) {
+                AVData avData = new AVData();
+                int dataSize = renderRegion.getHeight() * renderRegion.getWidth();
+                avData.size = dataSize;
+                avData.data = ByteBuffer.allocateDirect(dataSize);
+                int quarterSize = avData.size / 4;
+                avData.size1 = quarterSize;
+                avData.data1 = ByteBuffer.allocateDirect(quarterSize);
+                avData.size2 = quarterSize;
+                avData.data2 = ByteBuffer.allocateDirect(quarterSize);
+                regionAVDataMap.put(regionId, avData);
             }
         }
-        return hashMap;
+        return regionAVDataMap;
     }
 
-    private static native void nativeSetChildrenAVData(int i10, AVData aVData, List<AVData> list, List<CameraRenderRegion> list2);
+    private static native void nativeSetChildrenAVData(int index, AVData parentAVData, List<AVData> childAVDataList, List<CameraRenderRegion> renderRegionList);
 
-    public static void setChildrenAVData(int i10, AVData aVData, List<AVData> list, List<CameraRenderRegion> list2) {
-        if (aVData != null && list != null && list.size() > 0 && list2 != null && list2.size() == list.size()) {
-            aVData.data.position(0);
-            aVData.data1.position(0);
-            aVData.data2.position(0);
-            for (AVData aVData2 : list) {
-                if (aVData2 != null) {
-                    aVData2.data.position(0);
-                    aVData2.data1.position(0);
-                    aVData2.data2.position(0);
+    public static void setChildrenAVData(int index, AVData parentAVData, List<AVData> childAVDataList, List<CameraRenderRegion> renderRegionList) {
+        if (parentAVData != null && childAVDataList != null && !childAVDataList.isEmpty() && renderRegionList != null && renderRegionList.size() == childAVDataList.size()) {
+            parentAVData.data.position(0);
+            parentAVData.data1.position(0);
+            parentAVData.data2.position(0);
+            for (AVData childAVData : childAVDataList) {
+                if (childAVData != null) {
+                    childAVData.data.position(0);
+                    childAVData.data1.position(0);
+                    childAVData.data2.position(0);
                 }
             }
-            nativeSetChildrenAVData(i10, aVData, list, list2);
-            aVData.data.position(0);
-            aVData.data1.position(0);
-            aVData.data2.position(0);
-            for (AVData aVData3 : list) {
-                if (aVData3 != null) {
-                    aVData3.data.position(0);
-                    aVData3.data1.position(0);
-                    aVData3.data2.position(0);
+            nativeSetChildrenAVData(index, parentAVData, childAVDataList, renderRegionList);
+            parentAVData.data.position(0);
+            parentAVData.data1.position(0);
+            parentAVData.data2.position(0);
+            for (AVData childAVData : childAVDataList) {
+                if (childAVData != null) {
+                    childAVData.data.position(0);
+                    childAVData.data1.position(0);
+                    childAVData.data2.position(0);
                 }
             }
         }
     }
+
 }

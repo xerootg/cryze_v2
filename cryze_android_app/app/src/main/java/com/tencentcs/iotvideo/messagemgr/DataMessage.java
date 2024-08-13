@@ -1,13 +1,12 @@
 package com.tencentcs.iotvideo.messagemgr;
 
 import java.util.Arrays;
-/* loaded from: classes2.dex */
 public class DataMessage extends Message {
     public byte[] data;
 
-    public DataMessage(long j10, int i10, int i11, byte[] bArr) {
-        super(i10, j10, i11);
-        this.data = bArr;
+    public DataMessage(long id, int type, int error, byte[] data) {
+        super(type, id, error);
+        this.data = data;
     }
 
     public String toString() {

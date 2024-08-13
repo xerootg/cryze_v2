@@ -81,7 +81,7 @@ public class PlaybackMessage extends DataMessage {
             return;
         }
         for (int i11 = 0; i11 < bytesToInt; i11++) {
-            this.playbackList.add(new PlaybackNode(ByteUtils.bytesTolong(bArr, i10), ByteUtils.bytesTolong(bArr, i10 + 8), byteToStr(bArr, i10 + 16, 17)));
+            this.playbackList.add(new PlaybackNode(ByteUtils.bytesToLong(bArr, i10), ByteUtils.bytesToLong(bArr, i10 + 8), byteToStr(bArr, i10 + 16, 17)));
             i10 += 33;
         }
     }
@@ -115,7 +115,7 @@ public class PlaybackMessage extends DataMessage {
             LogUtils.i(TAG, "play list is null");
             return;
         }
-        long bytesTolong = ByteUtils.bytesTolong(bArr, 17);
+        long bytesTolong = ByteUtils.bytesToLong(bArr, 17);
         int i11 = bArr[25];
         int i12 = (i11 * 17) + 26;
         if (bArr.length < i12) {
@@ -145,39 +145,39 @@ public class PlaybackMessage extends DataMessage {
         }
         for (int i15 = 0; i15 < bytesToInt2; i15++) {
             int i16 = (i15 * 13) + i12;
-            long bytesTolong2 = ByteUtils.bytesTolong(bArr, i16) + bytesTolong;
+            long bytesTolong2 = ByteUtils.bytesToLong(bArr, i16) + bytesTolong;
             byte[] bArr4 = bArr2[bArr[i16 + 12]];
             this.playbackList.add(new PlaybackNode(bytesTolong2, bytesTolong2 + (ByteUtils.bytesToInt(bArr, i16 + 8) & 4294967295L), byteToStr(bArr4, 0, bArr4.length)));
         }
     }
 
-    public void addOnePageData(byte b10, long j10, int i10, int i11, byte[] bArr) {
-        this.version = b10;
-        this.id = j10;
-        this.type = i10;
-        this.error = i11;
-        parseData(bArr);
+    public void addOnePageData(byte version, long id, int type, int errorCode, byte[] data) {
+        this.version = version;
+        this.id = id;
+        this.type = type;
+        this.error = errorCode;
+        parseData(data);
     }
 
-    public String byteToStr(byte[] bArr, int i10, int i11) {
-        int i12 = 0;
-        int i13 = 0;
+    public String byteToStr(byte[] bArr, int offset, int length) {
+        int len = 0;
+        int pointer = 0;
         while (true) {
-            if (i13 >= i11) {
+            if (pointer >= length) {
                 break;
             }
             try {
-                if (bArr[i13 + i10] == 0) {
-                    i12 = i13;
+                if (bArr[pointer + offset] == 0) {
+                    len = pointer;
                     break;
                 }
-                i13++;
+                pointer++;
             } catch (Exception unused) {
                 return "";
             }
         }
         try {
-            return new String(bArr, i10, i12, "UTF-8");
+            return new String(bArr, offset, len, "UTF-8");
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }

@@ -4,6 +4,7 @@ import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -11,19 +12,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
 import com.tencentcs.iotvideo.custom.CameraCredential
-import com.tencentcs.iotvideo.iotvideoplayer.IAudioRender
-import com.tencentcs.iotvideo.iotvideoplayer.IConnectDevStateListener
-import com.tencentcs.iotvideo.iotvideoplayer.IVideoRender
 import com.tencentcs.iotvideo.iotvideoplayer.IoTVideoPlayer
-import com.tencentcs.iotvideo.iotvideoplayer.codec.AVData
-import com.tencentcs.iotvideo.iotvideoplayer.codec.AVHeader
-import com.tencentcs.iotvideo.iotvideoplayer.mediacodec.ExportableVideoStreamDecoder
-import com.tencentcs.iotvideo.iotvideoplayer.player.PlayerUserData
-import com.tencentcs.iotvideo.messagemgr.MessageMgr
 import com.tencentcs.iotvideo.ui.theme.CustomNativeIotVideoTheme
 import com.tencentcs.iotvideo.utils.LogUtils
-import com.tencentcs.iotvideo.utils.rxjava.IResultListener
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -41,14 +35,69 @@ class MainApplication : Application() {
     }
 }
 
+class CameraViewModel : ViewModel() {
+    private val _cameraList = MutableLiveData<ArrayList<CameraPlayer>>()
+    val cameraList: MutableLiveData<ArrayList<CameraPlayer>> = _cameraList
+
+    private val _framesSent = MutableLiveData<Long>()
+    val framesSent: MutableLiveData<Long> = _framesSent
+
+    init {
+        _cameraList.value = ArrayList()
+        _framesSent.value = 0L
+    }
+
+    fun incrementFramesSent() {
+        _framesSent.value = _framesSent.value?.plus(1)
+    }
+
+    fun addCamera(camera: CameraPlayer) {
+        val currentList = _cameraList.value
+        currentList?.add(camera)
+        _cameraList.value = currentList
+    }
+
+    fun containsCamera(cameraId: String): Boolean {
+        val currentList = _cameraList.value
+        return currentList?.any { it.equalsCameraId(cameraId) } ?: false
+    }
+
+    fun popCamera(): CameraPlayer? {
+        val currentList = _cameraList.value
+        return currentList?.removeAt(0)
+    }
+
+    fun cameraCount(): Int {
+        return _cameraList.value?.size ?: 0
+    }
+
+    fun activePortList(): List<Int> {
+        val currentList = _cameraList.value
+        return currentList?.map { it.port } ?: emptyList()
+    }
+
+    fun getStatusMessage(): String {
+        val stringBuilder = StringBuilder()
+        stringBuilder.append("There are " + cameraCount() + " cameras active\n")
+        for (camera in _cameraList.value!!) {
+            stringBuilder.append(camera.toString())
+        }
+        stringBuilder.append("frames sent: " + framesSent.value)
+        return stringBuilder.toString()
+    }
+
+}
 
 class MainActivity : ComponentActivity() {
+
+    private val viewModel: CameraViewModel by viewModels()
 
     private val TAG: String = "MainActivityIot"
 
     private var cryze_api: String = "http://cryze_api:8080"
 
-    private var iotVideoPlayer: IoTVideoPlayer = IoTVideoPlayer()
+    private val client = OkHttpClient()
+    private val context = this // so i can pass it to the CameraViewer class... maybe not the best idea
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,13 +114,46 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        viewModel.cameraList.observe(this) { _ ->
+            setContent{
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Greeting(viewModel.getStatusMessage())
+                }
+            }
+        }
+
+        viewModel.framesSent.observe(this) { _ ->
+            setContent{
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Greeting(viewModel.getStatusMessage())
+                }
+            }
+        }
+
+        // start getting frames hooked up
         getCameraIdsFromServer()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // stop all the threads
+        while (viewModel.cameraCount() > 0)
+        {
+            val camera = viewModel.popCamera()
+            camera?.playerThread?.interrupt()
+        }
+        unregisterIotVideoSdk()
     }
 
     private fun getCameraIdsFromServer(): Unit
     {
         val requestUrl = "$cryze_api/getCameraIds"
-        val client = OkHttpClient()
         val request = Request.Builder()
             .url(requestUrl)
             .build()
@@ -102,7 +184,6 @@ class MainActivity : ComponentActivity() {
 
         // get the camera credentials from the server
         val requestUrl = "$cryze_api/getToken?cameraId=$cameraId"
-        val client = OkHttpClient()
         val request = Request.Builder()
             .url(requestUrl)
             .build()
@@ -126,23 +207,28 @@ class MainActivity : ComponentActivity() {
                 // the response body is json serialized LoginInfoMessage, deserialize it
                 val loginInfo = CameraCredential.parseFrom(responseBody)
 
-                // then call the main login callback
-                mainLoginCallback(loginInfo)
+                if (!viewModel.containsCamera(loginInfo.deviceId))
+                {
+                    val cameraPlayer = CameraPlayer(loginInfo, context)
+
+                    cameraPlayer.addOnFrameUpdateCallback {
+                        runOnUiThread {
+                            viewModel.incrementFramesSent()
+                        }
+                    }
+
+                    // add the camera to the view model so the UI can display it
+                    runOnUiThread {
+                        viewModel.addCamera(cameraPlayer)
+                    }
+
+                    cameraPlayer.playerThread = Thread {
+                        cameraPlayer.start()
+                    }
+                    cameraPlayer.playerThread?.start() ?: LogUtils.e(TAG, "Camera player thread is null")
+                }
             }
         })
-    }
-
-    private var deviceIdList: ArrayList<String> = ArrayList()
-
-    private fun registerIotVideoSdk(loginInfo: CameraCredential)
-    {
-        IoTVideoSdk.register(loginInfo.accessId, loginInfo.accessToken, 3)
-        IoTVideoSdk.getMessageMgr().removeModelListeners()
-        IoTVideoSdk.getMessageMgr().addModelListener {
-            // do something with model info here?
-            LogUtils.d("CLModelListener", "new model message! ${it.device}, path: ${it.path}, data: ${it.data}")
-            deviceIdList.add(it.device)
-        }
     }
 
     private fun unregisterIotVideoSdk()
@@ -152,160 +238,6 @@ class MainActivity : ComponentActivity() {
         IoTVideoSdk.getMessageMgr().removeModelListeners()
     }
 
-    private fun addAppLinkListener(loginInfo: CameraCredential)
-    {
-        if (isSdkRegistered())
-        {
-            LogUtils.i(TAG, "appLinkListener() iot is register")
-            addSubscribeDevice(loginInfo)
-            return
-        }
-
-        IoTVideoSdk.getMessageMgr().addAppLinkListener {
-            LogUtils.i(TAG, "appLinkListener state = $it")
-            var shouldExit = false
-            if (it == 1) {
-                LogUtils.i(TAG, "Reg success, app online, start live")
-                addSubscribeDevice(loginInfo)
-                shouldExit = true
-            }
-            if (!shouldExit)
-            {
-                var z = true
-                if (it != 6 && it != 13 && (12 > it || it >= 18))
-                {
-                    z = false
-                }
-                if (z)
-                {
-                    unregisterIotVideoSdk()
-                }
-            }
-
-        }
-    }
-
-    private fun addSubscribeDevice(loginInfo: CameraCredential)
-    {
-        if (deviceIdList.contains(loginInfo.deviceId))
-        {
-            IoTVideoSdk.getNetConfig().subscribeDevice(loginInfo.accessToken, loginInfo.deviceId, object : IResultListener<Boolean> {
-                override fun onError(i10: Int, str: String?) {
-                    LogUtils.e("DeviceResultIOT", "on Error: $i10 with messsage: $str")
-                }
-
-                override fun onStart() {
-                    LogUtils.e("DeviceResultIOT", "onStart")
-                }
-
-                override fun onSuccess(t10: Boolean?) {
-                    LogUtils.e("DeviceResultIOT", "onSuccess: $t10")
-                    var videoPlayer: IoTVideoPlayer = iotVideoPlayer
-                    setupIotVideoPlayer(loginInfo)
-                    videoPlayer.play() // start receiving packets
-                    LogUtils.i(TAG, "Player state: ${videoPlayer.playState}");
-                }
-            })
-        } else {
-            LogUtils.w(TAG, "Deviceid not in device list of models so far")
-            LogUtils.w(TAG, deviceIdList.toString())
-        }
-    }
-
-    private fun isSdkRegistered() : Boolean
-    {
-        return MessageMgr.getSdkStatus() == 1
-    }
-
-    private fun setupIotVideoPlayer(loginInfo: CameraCredential)
-    {
-        val ioTVideoPlayer: IoTVideoPlayer = iotVideoPlayer
-
-        ioTVideoPlayer.mute(true)
-        ioTVideoPlayer.setDataResource("_@." + loginInfo.deviceId, 1, PlayerUserData(2))
-        ioTVideoPlayer.setConnectDevStateListener(object : IConnectDevStateListener
-        {
-            override fun onStatus(i10: Int) {
-                LogUtils.i(TAG, "onStatus for iotvideo player: $i10")
-            }
-
-        })
-        ioTVideoPlayer.setAudioRender(object : IAudioRender{
-            override fun flushRender() {
-//                LogUtils.d(TAG, "IAudioRender flushRender for iotvideo player")
-            }
-
-            override fun getWaitRenderDuration(): Long {
-                return 0L
-            }
-
-            override fun onFrameUpdate(aVData: AVData?) {
-//                LogUtils.d(TAG, "IAudioRender onFrameUpdate for iotvideo player, size: ${aVData.toString()}")
-            }
-
-            override fun onInit(aVHeader: AVHeader?) {
-//                LogUtils.d(TAG, "IAudioRender override fun onInit(aVHeader: AVHeader?) for iotvideo player, size: ${aVHeader.toString()}")
-            }
-
-            override fun onRelease() {
-//                LogUtils.d(TAG, "IAudioRender onRelease for iotvideo player")
-            }
-
-            override fun setPlayerVolume(f10: Float) {
-//                LogUtils.d(TAG, "IAudioRender setPlayerVolume for iotvideo player}")
-            }
-
-        })
-
-        // Setting the video render will only get a frame if you use a decoder in android like MediaCodecVideoDecoder,
-        // if you use a custom IVideoDecoder then nothing will get sent to onFrameUpdate
-        ioTVideoPlayer.setVideoRender(object : IVideoRender {
-            override fun onFrameUpdate(aVData: AVData?) {
-                LogUtils.d(TAG, "CustomVideoRender onFrameUpdate for iotvideo player, size: ${aVData.toString()}")
-            }
-
-            override fun onInit(aVHeader: AVHeader?) {
-                LogUtils.d(TAG, "IVideoRender override fun onInit(aVHeader: AVHeader?) {\n for iotvideo player, size: ${aVHeader.toString()}")
-            }
-
-            override fun onPause() {
-//                LogUtils.d(TAG, "IVideoRender onPause for iotvideo player")
-            }
-
-            override fun onRelease() {
-//                LogUtils.d(TAG, "IVideoRender onRelease for iotvideo player")
-            }
-
-            override fun onResume() {
-//                LogUtils.d(TAG, "IVideoRender onResume for iotvideo player")
-            }
-
-        })
-
-        //ioTVideoPlayer.setVideoDecoder(MediaCodecVideoDecoder())
-        ioTVideoPlayer.setVideoDecoder(ExportableVideoStreamDecoder(loginInfo.socketPort, this))
-
-        ioTVideoPlayer.setErrorListener { errorNumber ->
-            LogUtils.i(
-                TAG,
-                "errorListener onError for iotvideo player: $errorNumber"
-            )
-        }
-        ioTVideoPlayer.setStatusListener { statusCode ->
-            LogUtils.i(
-                TAG,
-                "IStatusListener onStatus for iotvideo player: $statusCode"
-            )
-        }
-    }
-
-    private fun mainLoginCallback(loginInfo: CameraCredential)
-    {
-            LogUtils.e(TAG, "LOGIN INFO accessId: ${loginInfo.accessId}, token: ${loginInfo.accessToken}, deviceId: ${loginInfo.deviceId}")
-            registerIotVideoSdk(loginInfo)
-            Thread.sleep(2200)
-            addAppLinkListener(loginInfo)
-    }
 
 }
 

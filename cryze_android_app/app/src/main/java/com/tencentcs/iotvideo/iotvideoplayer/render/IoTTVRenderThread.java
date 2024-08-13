@@ -4,7 +4,7 @@ import android.graphics.SurfaceTexture;
 import android.view.Surface;
 import android.view.TextureView;
 import com.tencentcs.iotvideo.utils.LogUtils;
-/* loaded from: classes2.dex */
+
 public class IoTTVRenderThread extends GLRenderThread implements TextureView.SurfaceTextureListener {
     private static final int DELAY_NOTIFY_SIZE_CHANGE = 20;
     private static final String TAG = "IoTTVRenderThread";
@@ -13,7 +13,7 @@ public class IoTTVRenderThread extends GLRenderThread implements TextureView.Sur
     @Override // android.view.TextureView.SurfaceTextureListener
     public void onSurfaceTextureAvailable(final SurfaceTexture surfaceTexture, int i10, int i11) {
         LogUtils.i(TAG, "onSurfaceTextureAvailable");
-        queueEvent(new Runnable() { // from class: com.tencentcs.iotvideo.iotvideoplayer.render.IoTTVRenderThread.1
+        queueEvent(new Runnable() {
             @Override // java.lang.Runnable
             public void run() {
                 IIoTGLRender iIoTGLRender = IoTTVRenderThread.this.mIoTGLRender;

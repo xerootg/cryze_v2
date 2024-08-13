@@ -1,59 +1,49 @@
 using System.Diagnostics;
 using System.Text.Json;
 
-var cameraIdList = Environment.GetEnvironmentVariable("CAMERA_IDS")?.Split(';').ToList() ?? throw new Exception("CAMERA_IDS environment variable is not set; it should be a semicolon-separated list of camera IDs");
-var startInputPort = int.Parse(Environment.GetEnvironmentVariable("START_INPUT_PORT") ?? "5001");
+var cameras = new Dictionary<string, CameraConfig>();
 
-// make a hashset of cameraids to ports for the rtsp server, in order to add the rtsp server to the input sockets later
-var cameraIdToPort = new Dictionary<string, int>();
-foreach (var cameraId in cameraIdList)
+foreach (var cameraIdPair in
+  // get the list of camera IDs from the environment variable, or throw an exception if it's not set
+  Environment.GetEnvironmentVariable("CAMERA_IDS")?.Split(',').ToList() ??
+  throw new Exception("CAMERA_IDS environment variable is not set; it should be a semicolon-separated list of camera IDs")
+  )
 {
-    cameraIdToPort[cameraId] = startInputPort + cameraIdList.IndexOf(cameraId);
+  var pair = cameraIdPair.Split(':');
+  if (pair.Length == 2 && int.TryParse(pair[1], out int port))
+  {
+    var cameraConfig = new CameraConfig
+    {
+      CameraId = pair[0],
+      Port = port
+    };
+    cameras.Add(pair[0], cameraConfig);
+  }
 }
 
-// create a socket to recieve the raw h264 stream on for each camera ID starting at startInputPort, and a buffer to recieve the stream into
-var cameraReader = new Dictionary<string, WyzeCamera>();
-foreach (var camera in cameraIdToPort)
-{
-    Console.WriteLine($"Creating input socket for camera {camera.Key} on port {camera.Value}");
-    cameraReader[camera.Key] = new WyzeCamera(camera.Value);
-    cameraReader[camera.Key].Start();
-
-    // bind the shutdown event to the dispose method
-    AppDomain.CurrentDomain.ProcessExit += (sender, e) => cameraReader[camera.Key].Dispose();
-}
+var pythonScriptPath =  Environment.GetEnvironmentVariable("APP_PYTHON_SCRIPT_PATH") ?? "/app/python/"; // path to the python scripts in the container
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
-
-// make an rtsp server from SharpRTSP
-using var server = new SharpRTSPServer.RTSPServer(8554,"viewer","viewer", app.Services.GetRequiredService<ILoggerFactory>());
-
-// add the rtsp server to the input sockets
-foreach (var camera in cameraReader)
-{
-  server.AddVideoTrack(camera.Value.Track);
-  server.SessionName = camera.Key;
-}
 
 app.UseDeveloperExceptionPage();
 
 app.MapGet("/", () => "Hello World!");
 
-app.MapGet("/getCameraIds", () => JsonSerializer.Serialize(cameraIdList));
+app.MapGet("/getCameraIds", () => JsonSerializer.Serialize(cameras.Keys));
 
 app.MapGet("/getToken", (string cameraId) =>
 {
     // ensure cameraId is in the list
-    if (!cameraIdList.Contains(cameraId))
+    if (!cameras.Keys.Contains(cameraId))
     {
         throw new IndexOutOfRangeException($"Camera ID {cameraId} is not in the list of allowed camera IDs");
     }
 
     var startInfo = new ProcessStartInfo
     {
-        FileName = "python3",
-        Arguments = $"/app/python/get_camera_token.py {cameraId}",
+        FileName = "python3", // maybe find a better way to find this? it works most of the time
+        Arguments = $"{pythonScriptPath}{Path.DirectorySeparatorChar}get_camera_token.py {cameraId}",
         RedirectStandardOutput = true,
         RedirectStandardError = true, // Add this line to redirect the StandardError stream
         UseShellExecute = false,
@@ -80,27 +70,32 @@ app.MapGet("/getToken", (string cameraId) =>
 
     // result is a json object, we need to append a socketPort field to it so the client knows which port to connect to, preserving the original field types
     var token = JsonSerializer.Deserialize<Dictionary<string, object>>(result);
-    token["socketPort"] = cameraIdToPort[cameraId];
+    token["socketPort"] = cameras[cameraId].Port;
 
     return JsonSerializer.Serialize(token);
+});
+
+app.MapGet("/getCameraConfig", (string cameraId) =>
+{
+    // ensure cameraId is in the list
+    if (!cameras.Keys.Contains(cameraId))
+    {
+        throw new IndexOutOfRangeException($"Camera ID {cameraId} is not in the list of allowed camera IDs");
+    }
+
+    return JsonSerializer.Serialize(cameras[cameraId]);
 });
 
 // an endpoint to get a port for a socket to recieve the raw h264 stream on, given a camera ID, initilaize that input socket and hook up the rtsp server to it
 app.MapGet("/getStreamInputPort", (string cameraId) =>
 {
     // ensure cameraId is in the list
-    if (!cameraIdList.Contains(cameraId))
+    if (!cameras.Keys.Contains(cameraId))
     {
         throw new IndexOutOfRangeException($"Camera ID {cameraId} is not in the list of allowed camera IDs");
     }
 
-    return cameraIdToPort[cameraId];
+    return cameras[cameraId].Port;
 });
-
-
-// register shutdown to stop the rtsp server
-AppDomain.CurrentDomain.ProcessExit += (sender, e) => server.StopListen();
-
-server.StartListen();
 
 app.Run();

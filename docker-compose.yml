@@ -13,8 +13,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - 8080:8080
-    # volumes:
-    #   - ./cryze_api/python:/app/python # used for development
     env_file:
       - .env
 
@@ -28,6 +26,8 @@ services:
     ports:
       - 5555:5555
       - 5001:5001
+      - 5006:5006
+      - 5007:5007
     entrypoint: # need to override the entrypoint to run the app on arch, see the redroid docs
       - /init
       - qemu=1

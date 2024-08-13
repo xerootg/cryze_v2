@@ -2,7 +2,6 @@ package com.tencentcs.iotvideo.messagemgr;
 
 import android.annotation.SuppressLint;
 import com.tencentcs.iotvideo.IoTVideoError;
-import com.tencentcs.iotvideo.messagemgr.DelPlaybackData;
 import com.tencentcs.iotvideo.utils.ByteUtils;
 import com.tencentcs.iotvideo.utils.LogUtils;
 import java.util.ArrayList;
@@ -30,7 +29,7 @@ public class DelPlaybackDataMessage {
         int bytesToInt3 = ByteUtils.bytesToInt(bArr, 12);
         int bytesToInt4 = ByteUtils.bytesToInt(bArr, 16);
         int bytesToInt5 = ByteUtils.bytesToInt(bArr, 20);
-        long bytesTolong = ByteUtils.bytesTolong(bArr, 24);
+        long bytesTolong = ByteUtils.bytesToLong(bArr, 24);
         if (255 == (bytesToInt4 & 255)) {
             this.isLastPage = true;
         }

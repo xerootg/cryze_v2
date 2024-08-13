@@ -2,22 +2,21 @@ package com.tencentcs.iotvideo.utils;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-/* loaded from: classes2.dex */
 public class ByteUtils {
-    public static short byte2ToShort(byte[] bArr, int i10) {
-        return (short) (((short) (((short) (bArr[i10 + 1] & 255)) << 8)) | ((short) (bArr[i10] & 255)));
+    public static short byte2ToShort(byte[] byteArray, int offset) {
+        return (short) (((short) (((short) (byteArray[offset + 1] & 255)) << 8)) | ((short) (byteArray[offset] & 255)));
     }
 
-    public static int bytesToInt(byte[] bArr, int i10) {
-        return ((bArr[i10 + 3] & 255) << 24) | (bArr[i10] & 255) | ((bArr[i10 + 1] & 255) << 8) | ((bArr[i10 + 2] & 255) << 16);
+    public static int bytesToInt(byte[] byteArray, int offset) {
+        return ((byteArray[offset + 3] & 255) << 24) | (byteArray[offset] & 255) | ((byteArray[offset + 1] & 255) << 8) | ((byteArray[offset + 2] & 255) << 16);
     }
 
-    public static long bytesTolong(byte[] bArr, int i10) {
-        ByteBuffer allocate = ByteBuffer.allocate(8);
-        allocate.order(ByteOrder.LITTLE_ENDIAN);
-        allocate.put(bArr, i10, 8);
-        allocate.flip();
-        return allocate.getLong();
+    public static long bytesToLong(byte[] byteArray, int offset) {
+        ByteBuffer buffer = ByteBuffer.allocate(8);
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+        buffer.put(byteArray, offset, 8);
+        buffer.flip();
+        return buffer.getLong();
     }
 
     public static byte[] intToBytes(int i10) {
@@ -28,8 +27,9 @@ public class ByteUtils {
         return new byte[]{(byte) (j10 & 255), (byte) ((j10 >> 8) & 255), (byte) ((j10 >> 16) & 255), (byte) ((j10 >> 24) & 255), (byte) ((j10 >> 32) & 255), (byte) ((j10 >> 40) & 255), (byte) ((j10 >> 48) & 255), (byte) ((j10 >> 56) & 255)};
     }
 
+    public static final long MAX_UNSIGNED_INT = 4294967295L;
     public static long lowBit32(long j10) {
-        return j10 & 4294967295L;
+        return j10 & MAX_UNSIGNED_INT;
     }
 
     public static byte[] shortToByte2(short s10) {

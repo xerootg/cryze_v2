@@ -73,42 +73,42 @@ public class MessageMgr implements IMessageMgr {
 
     private native void nativeUnregister();
 
-    private static void onModelMessage(String str, long j10, int i10, int i11, String str2, String str3) {
-        LogUtils.i(TAG, "onModelMessage deviceId:" + str + ", id:" + j10 + ", type:" + i10 + ", error:" + i11 + ", path:" + str2 + ", data:" + str3);
-        getInstance().dispatchModelMessage(new ModelMessage(str, j10, i10, i11, str2, str3));
+    private static void onModelMessage(String deviceId, long id, int type, int error, String path, String data) {
+        LogUtils.i(TAG, "onModelMessage deviceId:" + deviceId + ", id:" + id + ", type:" + type + ", error:" + error + ", path:" + path + ", data:" + data);
+        getInstance().dispatchModelMessage(new ModelMessage(deviceId, id, type, error, path, data));
     }
 
-    private static void onEventMessage(final String str, final String str2) {
-        LogUtils.i(TAG, "onEventMessage topic:" + str + ", data:" + str2);
+    private static void onEventMessage(final String topic, final String data) {
+        LogUtils.i(TAG, "onEventMessage topic:" + topic + ", data:" + data);
     }
 
-    private static void onDataMessage(String str, long j10, int i10, int i11, byte[] bArr) {
-        LogUtils.i(TAG, "onDataMessage deviceId = " + str + ", id " + j10 + ", type:" + i10 + ", error:" + i11 + "; data:" + Arrays.toString(bArr));
+    private static void onDataMessage(String deviceId, long id, int type, int error, byte[] data) {
+        LogUtils.i(TAG, "onDataMessage deviceId = " + deviceId + ", id " + id + ", type:" + type + ", error:" + error + "; data:" + Arrays.toString(data));
     }
 
-    private static void onSubscribeDevice(final int i10, final int i11) {
+    private static void onSubscribeDevice(final int messageId, final int error) {
         LogUtils.i(TAG, "onSubscribeDevice ==========start==========");
         if (getInstance().mSubscribeDeviceMap != null && getInstance().mSubscribeDeviceMap.size() > 0)
         {
-            IResultListener<Boolean> currentResListener = getInstance().mSubscribeDeviceMap.get(i10);
+            IResultListener<Boolean> currentResListener = getInstance().mSubscribeDeviceMap.get(messageId);
             if (currentResListener == null)
             {
                 LogUtils.w(TAG, "onSubscribeDevice listener is null");
                 return;
             }
-            LogUtils.i(TAG, "onSubscribeDevice: msgId: " + i10 + " error: " + i11);
-            if (i11 != 0)
+            LogUtils.i(TAG, "onSubscribeDevice: msgId: " + messageId + " error: " + error);
+            if (error != 0)
             {
                 if (isMainThread())
                 {
-                    currentResListener.onError(i11, "subscribe device error" + i11);
+                    currentResListener.onError(error, "subscribe device error" + error);
                     return;
                 }
                 getInstance().mMainHandler.post(new Runnable() {
                     @Override
                     public void run() {
                         LogUtils.i(TAG, "onSubscribeDevice app status at subThread");
-                        currentResListener.onError(i11, "subscribe device error" + i11);
+                        currentResListener.onError(error, "subscribe device error" + error);
                     }
                 });
                 return;
@@ -117,14 +117,14 @@ public class MessageMgr implements IMessageMgr {
             {
                 LogUtils.i(TAG, "onSubscribeDevice app status at uiThread");
                 currentResListener.onSuccess(Boolean.TRUE);
-                getInstance().mSubscribeDeviceMap.remove(i10);
+                getInstance().mSubscribeDeviceMap.remove(messageId);
             } else {
                 getInstance().mMainHandler.post(new Runnable() {
                     @Override
                     public void run() {
                         LogUtils.i(TAG, "onSubscribeDevice app status at uiThread");
                         currentResListener.onSuccess(Boolean.TRUE);
-                        getInstance().mSubscribeDeviceMap.remove(i10);
+                        getInstance().mSubscribeDeviceMap.remove(messageId);
                     }
                 });
             }
@@ -132,32 +132,32 @@ public class MessageMgr implements IMessageMgr {
         LogUtils.i(TAG, "onSubscribeDevice ==========end==========");
     }
 
-    private static int onNetworkDetect(int i10, int i11, int i12, int[] iArr, int i13) {
-        String ret = "onNetworkDetech fromIp: " + i10 + ", totalSend: " + i11 + ", totalRecv: " + i12 + ", pingDelay: " + Arrays.toString(iArr) + ", resv: " + i13;
+    private static int onNetworkDetect(int fromIp, int totalSent, int totalRec, int[] pingDelay, int resv) {
+        String ret = "onNetworkDetech fromIp: " + fromIp + ", totalSend: " + totalSent + ", totalRecv: " + totalRec + ", pingDelay: " + Arrays.toString(pingDelay) + ", resv: " + resv;
         LogUtils.i(TAG, ret);
         return 0;
     }
 
-    private static int ivCommonGetCb(int i10, byte[] bArr, int i11) {
-        LogUtils.i(TAG, String.format(Locale.getDefault(), "ivCommonGetCb type:%d,  len:%d, minimum:%d", i10, i11, i11));
-        byte[] readFile2BytesByStream = FileIOUtils.readFile2BytesByStream(getP2PSavePath(i10));
-        System.arraycopy(readFile2BytesByStream, 0, bArr, 0, Math.min(i11, readFile2BytesByStream.length));
-        return Math.min(i11, readFile2BytesByStream.length);
+    private static int ivCommonGetCb(int type, byte[] valueOut, int minimumLength) {
+        LogUtils.i(TAG, String.format(Locale.getDefault(), "ivCommonGetCb type:%d,  len:%d, minimum:%d", type, minimumLength, minimumLength));
+        byte[] readFile2BytesByStream = FileIOUtils.readFile2BytesByStream(getP2PSavePath(type));
+        System.arraycopy(readFile2BytesByStream, 0, valueOut, 0, Math.min(minimumLength, readFile2BytesByStream.length));
+        return Math.min(minimumLength, readFile2BytesByStream.length);
     }
 
-    private static int ivCommonSetCb(int i10, byte[] bArr, int i11) {
-        LogUtils.d(TAG, String.format(Locale.getDefault(), "ivCommonSetCb type:%d, data:%s, len:%d", i10, Arrays.toString(bArr), i11));
-        if (FileIOUtils.writeFileFromBytesByStream(getP2PSavePath(i10), bArr)) {
+    private static int ivCommonSetCb(int type, byte[] value, int length) {
+        LogUtils.d(TAG, String.format(Locale.getDefault(), "ivCommonSetCb type:%d, data:%s, len:%d", type, Arrays.toString(value), length));
+        if (FileIOUtils.writeFileFromBytesByStream(getP2PSavePath(type), value)) {
             return 0;
         }
         return -1;
     }
 
-    private static String getP2PSavePath(int i10) {
+    private static String getP2PSavePath(int type) {
         Locale locale = Locale.getDefault();
         String absolutePath = mContext.getExternalFilesDir(null).getAbsolutePath();
-        String str = File.separator;
-        return String.format(locale, "%s%s%s%s%d%s", absolutePath, str, "p2pSave", str, i10, ".p2p");
+        String pathSeparator = File.separator;
+        return String.format(locale, "%s%s%s%s%d%s", absolutePath, pathSeparator, "p2pSave", pathSeparator, type, ".p2p");
     }
 
     static Boolean isSubbed = false;

@@ -9,8 +9,8 @@ import java.lang.ref.WeakReference;
 public class WeakHandler<T extends IHandlerConsumer> extends Handler {
     private final WeakReference<T> mWeakHandler;
 
-    public WeakHandler(T t10) {
-        this.mWeakHandler = new WeakReference<>(t10);
+    public WeakHandler(T referent) {
+        this.mWeakHandler = new WeakReference<>(referent);
     }
 
     @Override // android.os.Handler
@@ -21,8 +21,8 @@ public class WeakHandler<T extends IHandlerConsumer> extends Handler {
         }
     }
 
-    public WeakHandler(T t10, Looper looper) {
+    public WeakHandler(T referent, Looper looper) {
         super(looper);
-        this.mWeakHandler = new WeakReference<>(t10);
+        this.mWeakHandler = new WeakReference<>(referent);
     }
 }

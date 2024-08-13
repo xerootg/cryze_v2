@@ -33,11 +33,7 @@ public class IoTVideoRenderView extends FrameLayout implements IIoTVideoGesture.
     public IIoTVideoView getRenderView() {
         boolean z10;
         StringBuilder sb2 = new StringBuilder("getRenderView render view  is null:");
-        if (this.renderView == null) {
-            z10 = true;
-        } else {
-            z10 = false;
-        }
+        z10 = this.renderView == null;
         sb2.append(z10);
         LogUtils.d(TAG, sb2.toString());
         if (this.renderView == null) {
