@@ -2,6 +2,18 @@ Hello!
 
 This is a rough RTSP server for WYZE cameras of the GWELL variety
 
+## preface
+THANK YOU to Carson Loyal (carTloyal123) for the libraries to connect and get streams and pedroSG94 for RTSP related android libraries. I used the following repos:
+- [https://github.com/carTloyal123/cryze-android](cryze-android) - the library for connecting to the cameras
+- [https://github.com/carTloyal123/cryze](cryze) - scripts for getting tokens, capturing raw stream contents
+- [https://github.com/pedroSG94/RootEncoder](RootEncoder) - library for streaming RTSP
+- [https://github.com/pedroSG94/RTSP-Server](RTSP-Server) - library for serving RTSP streams
+
+## Prereqs
+- An x86 machine. I am using libhoudini in `redroid` to make the cryze android app work with the binaries for getting connections. This avoids the overhead of qemu or other android emulators.
+- a kernel compatible with `redroid`. follow [this guide](https://github.com/remote-android/redroid-doc/blob/master/deploy/README.md)
+- Wyze GWELL cameras. I've tested with `GW_GC1` (Wyze Cam OG) and `GW_BE1` (Wyze Cam Doorbell Pro	)
+
 To use this, docker compose is easiest.
 copy sample.env to .env
 update your details
@@ -14,6 +26,10 @@ docker compose up -d
 
 you can view the android container over adb with something like scrcpy: `scrcpy -s localhost:5555`
 
+## Support
+I am not tech support, I am sorry, but I just do not have time. To debug the android half, you _will_ need to use logcat/a debugger/android studio. The `redroid` logs are _not_ flushed to the docker log, and debugging is difficult. 
+
+## Use
 The RTSP server has issues. All sockets are written on the same thread and there's multi-connection issues. Use go2rtc/frigate/something to keep the connection count down.
 
 AGAIN: DO NOT DIRECTLY OPEN THESE RTSP CONNECTIONS.
