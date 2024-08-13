@@ -1,5 +1,4 @@
 on property:sys.boot_completed=1
     # install /app/app.apk using pm for the arm64 arch
-    exec -- /system/bin/sh -c "if [ ! -e /data/data/com.tencentcs.iotvideo ] ; then pm install --abi arm64-v8a /app/app.apk ; fi"
-    exec -- /system/bin/sh -c "sleep 5"
-    exec -- /system/bin/sh -c "am start -n com.tencentcs.iotvideo/com.tencentcs.iotvideo.MainActivity"
+    exec -- /system/bin/sh -c "pm install --abi arm64-v8a /app/app.apk; am start -n com.tencentcs.iotvideo/.MainActivity; while true; do am start -n com.tencentcs.iotvideo/.MainActivity; sleep 10; done"
+
