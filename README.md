@@ -12,7 +12,8 @@ THANK YOU to Carson Loyal (carTloyal123) for the libraries to connect and get st
 ## Prereqs
 - An x86 machine. I am using libhoudini in `redroid` to make the cryze android app work with the binaries for getting connections. This avoids the overhead of qemu or other android emulators.
 - a kernel compatible with `redroid`. follow [this guide](https://github.com/remote-android/redroid-doc/blob/master/deploy/README.md), optionally starting a redroid container to confirm it works
-- Wyze GWELL cameras. I've tested with `GW_GC1` (Wyze Cam OG) and `GW_BE1` (Wyze Cam Doorbell Pro	)
+- Wyze GWELL cameras. I've tested with `GW_GC1` (Wyze Cam OG) and `GW_BE1` (Wyze Cam Doorbell Pro	), 3 concurrent streams seems stable.
+- Unknown: non-GWELL Wyze cameras. There are references to TOTK in some of the libraries, it might work, but then again, it might not. Let me know if it does work or if it doesn't so I can document it.
 
 To use this, docker compose is easiest.
 1) copy `sample.env` to `.env` - update your details. Wyze API keys can be shared with `wyze-bridge` NOTE: I messed up and didnt exactly use the same variable names as `wyze-bridge` and I need to fix this. as such, there are duplicates.
@@ -31,6 +32,12 @@ I am not tech support, I am sorry, but I just do not have time. To debug the and
 
 ## Development
 I am using Android Studio for the android app, and just attaching to my remote docker-hosted `redroid` container (`adb connect [arch box ip address]:5555`). debugging/remote builds work, but container reboots will not persist your `/data` partition, so be sure to rebuild/restart with updated sources. (step 3 above)
+
+## HELP NEEDED
+- Top priotity: p2px, the native peer to peer library seems to not work, meaning this library is likely pulling down a bunch of traffic from wyze. I'd love to be independent of them to isolate us from API/firmware changes on their side. It seems like the native library tries to use p2px but crashes and falls back. There's some documentation (in chinese, google translate does cleanly translate it) on tencent's website and [github](https://github.com/tencentyun/). 
+- rewrite `RtspStream` to allow us to pass the raw packets from `AVData` on `IVideoDecoder.receive_frame` or `IVideoDecoder.send_packet` to remove _both_ `MediaCodec`s involved with _each_ camera's stream. This would significantly reduce the resource utilization.
+- move the complete use of the python `wyze_sdk` library into the android app to allow the android app to run independent of the webservice.
+- deal with camera events like disconnects/connects and stream death associated therein
 
 ## Use
 The RTSP server has issues. All sockets are written on the same thread and there's multi-connection issues. Use go2rtc/frigate/something to keep the connection count down.
