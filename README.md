@@ -137,3 +137,7 @@ cameras:
       height: 1440
       enabled: true
 ```
+
+## License
+- All files in `cryze_android_app/app/src/main/java/com/pedro` and copied works from `RootEncoder` and `RTSP-Server` remain licensed Apache v2 per the code's source repositories (linked above)
+- Remaining files not from named repos above, or missing copyright headers are licenses GPL v3, see the copy of that license located [here](LICENSE)
