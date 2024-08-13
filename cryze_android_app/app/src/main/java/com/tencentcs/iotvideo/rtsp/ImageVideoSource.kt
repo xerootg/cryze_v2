@@ -12,8 +12,6 @@ class ImageVideoSource constructor(private val context: Context
 
     private var isRunning = false
     private var surfaceEncoder: Surface? = null
-    private var imageWidth: Int = 0
-    private var imageHeight: Int = 0
 
     private val imageConverter = ImageConverter(context)
 
@@ -24,7 +22,7 @@ class ImageVideoSource constructor(private val context: Context
             surfaceEncoder?.let {
                 // write the frame
                 val canvas = surfaceEncoder?.lockCanvas(null) // repaint the whole canvas
-                val bitmap = imageConverter.convert(frame, 90) // convert image to bitmap
+                val bitmap = imageConverter.convert(frame, 0) // convert image to bitmap
                 // image is data, data1, and data2. this is the image decomposed into
                 canvas?.drawBitmap(bitmap, 0f, 0f, null) // draw the bitmap on the canvas
                 surfaceEncoder?.unlockCanvasAndPost(canvas) // set the canvas on the surface
@@ -35,7 +33,13 @@ class ImageVideoSource constructor(private val context: Context
     override fun start(surfaceTexture: SurfaceTexture)
     {
         this.surfaceTexture = surfaceTexture
-        surfaceTexture.setDefaultBufferSize(imageWidth, imageHeight)
+
+        if(rotation == 90 || rotation == 270){
+            surfaceTexture.setDefaultBufferSize(width, height)
+
+        } else {
+            surfaceTexture.setDefaultBufferSize(height, width)
+        }
 
         surfaceEncoder = Surface(surfaceTexture)
 
@@ -49,8 +53,6 @@ class ImageVideoSource constructor(private val context: Context
     }
 
     override fun create(width: Int, height: Int, fps: Int, rotation: Int): Boolean {
-        imageWidth = width
-        imageHeight = height
         return true
     }
 

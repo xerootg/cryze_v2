@@ -15,7 +15,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.tencentcs.iotvideo.custom.CameraCredential
-import com.tencentcs.iotvideo.iotvideoplayer.IoTVideoPlayer
 import com.tencentcs.iotvideo.ui.theme.CustomNativeIotVideoTheme
 import com.tencentcs.iotvideo.utils.LogUtils
 import okhttp3.Call
@@ -25,6 +24,7 @@ import okhttp3.Request
 import okhttp3.Response
 import org.json.JSONArray
 import java.io.IOException
+import kotlin.concurrent.fixedRateTimer
 
 class MainApplication : Application() {
     override fun onCreate() {
@@ -36,8 +36,8 @@ class MainApplication : Application() {
 }
 
 class CameraViewModel : ViewModel() {
-    private val _cameraList = MutableLiveData<ArrayList<CameraPlayer>>()
-    val cameraList: MutableLiveData<ArrayList<CameraPlayer>> = _cameraList
+    private val _cameraList = MutableLiveData<ArrayList<CameraToRtspPlayer>>()
+    val cameraList: MutableLiveData<ArrayList<CameraToRtspPlayer>> = _cameraList
 
     private val _framesSent = MutableLiveData<Long>()
     val framesSent: MutableLiveData<Long> = _framesSent
@@ -51,7 +51,7 @@ class CameraViewModel : ViewModel() {
         _framesSent.value = _framesSent.value?.plus(1)
     }
 
-    fun addCamera(camera: CameraPlayer) {
+    fun addCamera(camera: CameraToRtspPlayer) {
         val currentList = _cameraList.value
         currentList?.add(camera)
         _cameraList.value = currentList
@@ -62,7 +62,7 @@ class CameraViewModel : ViewModel() {
         return currentList?.any { it.equalsCameraId(cameraId) } ?: false
     }
 
-    fun popCamera(): CameraPlayer? {
+    fun popCamera(): CameraToRtspPlayer? {
         val currentList = _cameraList.value
         return currentList?.removeAt(0)
     }
@@ -125,13 +125,28 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        viewModel.framesSent.observe(this) { _ ->
-            setContent{
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Greeting(viewModel.getStatusMessage())
+//
+//        viewModel.framesSent.observe(this) { _ ->
+//            setContent{
+//                Surface(
+//                    modifier = Modifier.fillMaxSize(),
+//                    color = MaterialTheme.colorScheme.background
+//                ) {
+//                    Greeting(viewModel.getStatusMessage())
+//                }
+//            }
+//        }
+
+        // every 30 seconds, get the camera ids from the server
+        fixedRateTimer("callbackTimer", initialDelay = 10_000, period = 10_000) {
+            runOnUiThread {
+                setContent{
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        Greeting(viewModel.getStatusMessage())
+                    }
                 }
             }
         }
@@ -209,7 +224,7 @@ class MainActivity : ComponentActivity() {
 
                 if (!viewModel.containsCamera(loginInfo.deviceId))
                 {
-                    val cameraPlayer = CameraPlayer(loginInfo, context)
+                    val cameraPlayer = CameraToRtspPlayer(loginInfo, context)
 
                     cameraPlayer.addOnFrameUpdateCallback {
                         runOnUiThread {

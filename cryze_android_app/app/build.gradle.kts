@@ -65,8 +65,10 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.9.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.2.0")
 
-    implementation("com.github.pedroSG94.RootEncoder:library:2.4.7")
-    implementation("com.github.pedroSG94:RTSP-Server:1.3.0")
+    // static copies pulled into src
+    // implementation("com.github.pedroSG94.RootEncoder:library:2.4.7")
+    // implementation("com.github.pedroSG94:RTSP-Server:1.3.0")
+    
     implementation("androidx.camera:camera-core:1.3.4")
 
     testImplementation("junit:junit:4.13.2")

@@ -18,6 +18,7 @@ class ImageConverter(private val context: Context) {
 
     // calculate frames per second
     private var count = 0
+    private var logFps = false
     private var trackingStarted = false
 
     val logCallback: (Int) -> Unit = { count ->
@@ -48,7 +49,7 @@ class ImageConverter(private val context: Context) {
 
     fun convert(img: Image, rotation: Int = 0): Bitmap {
         val frame = nv21ToBitmap(yuv420toNV21(img), img.width, img.height, rotation)
-        onFrame() // track frames per second
+        if(logFps == true) onFrame() // track frames per second
         return frame
     }
 

@@ -12,7 +12,6 @@ import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
 import com.pedro.library.util.sources.audio.AudioSource
 import com.pedro.library.util.sources.audio.NoAudioSource
-import com.pedro.library.view.OrientationForced
 import com.pedro.rtspserver.RtspServerStream
 import com.pedro.rtspserver.server.ClientListener
 import com.pedro.rtspserver.server.ServerClient
@@ -25,7 +24,8 @@ import com.tencentcs.iotvideo.utils.LogUtils
 import java.io.IOException
 
 
-class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val baseContext : Activity) : ConnectChecker, ClientListener, IVideoDecoder {
+class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val baseContext : Activity) : ConnectChecker,
+    ClientListener, IVideoDecoder {
     
     private var codec : MediaCodec? = null
     private var mediaFormat : MediaFormat? = null
@@ -33,8 +33,6 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
     private var videoSource : ImageVideoSource = ImageVideoSource(baseContext)
     private var audioSource: AudioSource = NoAudioSource()
     private var rtspServerStream : RtspServerStream = RtspServerStream(baseContext, rtspPort, this, videoSource, audioSource)
-
-    private var streamThread: Thread? = null
 
     private var listOfOnFrameCallbacks = mutableListOf<()->Unit>()
 
@@ -83,7 +81,7 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
             }
         }
         
-        if(!rtspServerStream.prepareVideo(imageWidth, imageHeight, videoFormat.getInteger(MediaFormat.KEY_BIT_RATE), frameRate)) throw IOException("Error preparing video stream")
+        if(!rtspServerStream.prepareVideo(imageWidth, imageHeight, videoFormat.getInteger(MediaFormat.KEY_BIT_RATE), frameRate, rotation = 90)) throw IOException("Error preparing video stream")
 
         if(!rtspServerStream.prepareAudio(44100, false, 256)) throw IOException("Error preparing audio stream")
 
@@ -91,7 +89,6 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
         rtspServerStream.getStreamClient().setClientListener(this)
         rtspServerStream.getStreamClient().setOnlyVideo(true)
         rtspServerStream.getStreamClient().setLogs(false) // its really noisy IRL
-        rtspServerStream.getGlInterface().forceOrientation(OrientationForced.LANDSCAPE);
         rtspServerStream.setVideoCodec(VideoCodec.H264)
 
         // Configure the codec to decode only, we are passing the image to the VideoSource which will pass it to the surface to encode
@@ -99,26 +96,11 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
         mediaFormat = codec?.outputFormat
         codec?.start()
 
-        startStream()
-    }
-
-    fun startStream() {
-        streamThread = Thread {
-            try {
-                rtspServerStream.startStream()
-                LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "RTSP listening on ${rtspServerStream.getStreamClient().getEndPointConnection()}")
-            } catch (e: InterruptedException) {
-                // Handle the exception
-                e.printStackTrace()
-            }
-        }
-        streamThread?.start()
+        rtspServerStream.startStream("")
     }
 
     fun stopStream() {
         rtspServerStream.stopStream()
-        streamThread?.interrupt()
-        streamThread = null
     }
 
     override fun receive_frame(aVData: AVData?): Int {
@@ -171,6 +153,11 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
         if(aVData == null)
             return MediaConstant.SEND_PACKET_ERROR
 
+        if(rtspServerStream.isStreaming)
+        {
+//            rtspServerStream.getStreamClient().
+        }
+
         try {
             val mediaCodec = codec
             if (mediaCodec == null) {
@@ -210,10 +197,16 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
     override fun onConnectionSuccess() {
         LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onConnectionSuccess")
         callback?.onConnectionSuccess()
+        // get a keyframe
+        rtspServerStream.requestKeyframe()
     }
 
     override fun onNewBitrate(bitrate: Long) {
         LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onNewBitrate $bitrate")
+        if(bitrate == 0L){
+            rtspServerStream.requestKeyframe()
+            LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "requestKeyframe")
+        }
         callback?.onNewBitrate(bitrate)
     }
 
@@ -239,6 +232,8 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
 
     override fun onClientConnected(client: ServerClient) {
         LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onClientConnected")
+        // request keyframe on client connect so they might sync faster
+        rtspServerStream.requestKeyframe()
     }
 
     override fun onClientDisconnected(client: ServerClient) {

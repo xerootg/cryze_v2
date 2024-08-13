@@ -16,7 +16,7 @@ import com.tencentcs.iotvideo.utils.LogUtils
 import com.tencentcs.iotvideo.utils.Utils.getErrorDescription
 import com.tencentcs.iotvideo.utils.rxjava.IResultListener
 
-class CameraPlayer(private val cameraCredential: CameraCredential, private val baseContext: Activity) {
+class CameraToRtspPlayer(private val cameraCredential: CameraCredential, private val baseContext: Activity) {
 
     var iotVideoPlayer: IoTVideoPlayer = IoTVideoPlayer()
     var playerThread: Thread? = null
@@ -50,10 +50,10 @@ class CameraPlayer(private val cameraCredential: CameraCredential, private val b
         if(MessageMgr.getSdkStatus() != 1)
         {
             IoTVideoSdk.getMessageMgr().addAppLinkListener {
-                LogUtils.i(CameraPlayer::class.simpleName, "appLinkListener state = $it")
+                LogUtils.i(CameraToRtspPlayer::class.simpleName, "appLinkListener state = $it")
                 var shouldExit = false
                 if (it == 1) {
-                    LogUtils.i(CameraPlayer::class.simpleName, "Reg success, app online, start live")
+                    LogUtils.i(CameraToRtspPlayer::class.simpleName, "Reg success, app online, start live")
                     addSubscribeDevice(cameraCredential)
                     shouldExit = true
                 }
@@ -74,7 +74,7 @@ class CameraPlayer(private val cameraCredential: CameraCredential, private val b
 
             }
         } else {
-            LogUtils.i(CameraPlayer::class.simpleName, "appLinkListener() iot is register")
+            LogUtils.i(CameraToRtspPlayer::class.simpleName, "appLinkListener() iot is register")
             addSubscribeDevice(cameraCredential)
         }
 
@@ -101,7 +101,7 @@ class CameraPlayer(private val cameraCredential: CameraCredential, private val b
                 ioTVideoPlayer.setConnectDevStateListener(object : IConnectDevStateListener
                 {
                     override fun onStatus(i10: Int) {
-                        LogUtils.i(CameraPlayer::class.simpleName, "onStatus for iotvideo player: $i10")
+                        LogUtils.i(CameraToRtspPlayer::class.simpleName, "onStatus for iotvideo player: $i10")
                     }
 
                 })
@@ -131,11 +131,11 @@ class CameraPlayer(private val cameraCredential: CameraCredential, private val b
                 // if you use a custom IVideoDecoder then nothing will get sent to onFrameUpdate
                 ioTVideoPlayer.setVideoRender(object : IVideoRender {
                     override fun onFrameUpdate(aVData: AVData?) {
-                        LogUtils.d(CameraPlayer::class.simpleName, "CustomVideoRender onFrameUpdate for iotvideo player, size: ${aVData.toString()}")
+                        LogUtils.d(CameraToRtspPlayer::class.simpleName, "CustomVideoRender onFrameUpdate for iotvideo player, size: ${aVData.toString()}")
                     }
 
                     override fun onInit(aVHeader: AVHeader?) {
-                        LogUtils.d(CameraPlayer::class.simpleName, "IVideoRender override fun onInit(aVHeader: AVHeader?) {\n for iotvideo player, size: ${aVHeader.toString()}")
+                        LogUtils.d(CameraToRtspPlayer::class.simpleName, "IVideoRender override fun onInit(aVHeader: AVHeader?) {\n for iotvideo player, size: ${aVHeader.toString()}")
                     }
 
                     override fun onPause() {
@@ -159,19 +159,19 @@ class CameraPlayer(private val cameraCredential: CameraCredential, private val b
 
                 ioTVideoPlayer.setErrorListener { errorNumber ->
                     LogUtils.i(
-                        CameraPlayer::class.simpleName,
+                        CameraToRtspPlayer::class.simpleName,
                         "errorListener onError for iotvideo player: $errorNumber with message: ${getErrorDescription(errorNumber)}"
                     )
                 }
                 ioTVideoPlayer.setStatusListener { statusCode ->
                     LogUtils.i(
-                        CameraPlayer::class.simpleName,
+                        CameraToRtspPlayer::class.simpleName,
                         "IStatusListener onStatus for iotvideo player: $statusCode"
                     )
                 }
 
                 iotVideoPlayer.play() // start receiving packets
-                LogUtils.i(CameraPlayer::class.simpleName, "Player state: ${ioTVideoPlayer.playState}");
+                LogUtils.i(CameraToRtspPlayer::class.simpleName, "Player state: ${ioTVideoPlayer.playState}");
             }
         })
     }
@@ -188,7 +188,7 @@ class CameraPlayer(private val cameraCredential: CameraCredential, private val b
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as CameraPlayer
+        other as CameraToRtspPlayer
 
         return cameraCredential.deviceId == other.cameraCredential.deviceId
     }
