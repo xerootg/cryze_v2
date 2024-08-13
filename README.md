@@ -4,10 +4,10 @@ This is a rough RTSP server for WYZE cameras of the GWELL variety
 
 ## preface
 THANK YOU to Carson Loyal (carTloyal123) for the libraries to connect and get streams and pedroSG94 for RTSP related android libraries. I used the following repos:
-- [https://github.com/carTloyal123/cryze-android](cryze-android) - the library for connecting to the cameras
-- [https://github.com/carTloyal123/cryze](cryze) - scripts for getting tokens, capturing raw stream contents
-- [https://github.com/pedroSG94/RootEncoder](RootEncoder) - library for streaming RTSP
-- [https://github.com/pedroSG94/RTSP-Server](RTSP-Server) - library for serving RTSP streams
+- [cryze-android](https://github.com/carTloyal123/cryze-android) - the library for connecting to the cameras
+- [cryze](https://github.com/carTloyal123/cryze) - scripts for getting tokens, capturing raw stream contents
+- [RootEncoder](https://github.com/pedroSG94/RootEncoder) - library for streaming RTSP
+- [RTSP-Server](https://github.com/pedroSG94/RTSP-Server) - library for serving RTSP streams
 
 ## Prereqs
 - An x86 machine. I am using libhoudini in `redroid` to make the cryze android app work with the binaries for getting connections. This avoids the overhead of qemu or other android emulators.
