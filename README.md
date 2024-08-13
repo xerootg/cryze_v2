@@ -17,7 +17,8 @@ THANK YOU to Carson Loyal (carTloyal123) for the libraries to connect and get st
 To use this, docker compose is easiest.
 1) copy `sample.env` to `.env` - update your details. Wyze API keys can be shared with `wyze-bridge` NOTE: I messed up and didnt exactly use the same variable names as `wyze-bridge` and I need to fix this. as such, there are duplicates.
 2) update the `docker-config.yml` with the redroid configs specific to your kernel and GPU. This could involve changing some props, it could involve volume mapping your GPU. I'm running on a Minisforum NAB6 with an intel i7-12650H on Arch with the Zen kernel.
-3) build the thing:
+3) Optional: Expose the ports you mapped your cameras to in `.env` from the android container - I personally just share a network between frigate and this project so that I don't need to.
+4) build and start the thing:
 ```bash
 docker compose build
 docker compose up -d
