@@ -12,6 +12,7 @@ import com.tencentcs.iotvideo.iotvideoplayer.player.PlayerUserData
 import com.tencentcs.iotvideo.messagemgr.MessageMgr
 import com.tencentcs.iotvideo.rtsp.AudioStreamDecoder
 import com.tencentcs.iotvideo.rtsp.RtspServerVideoStreamDecoder
+import com.tencentcs.iotvideo.rtsp.SurfaceRtspServerStreamDecoder
 import com.tencentcs.iotvideo.utils.LogUtils
 import com.tencentcs.iotvideo.utils.Utils.getErrorDescription
 import com.tencentcs.iotvideo.utils.rxjava.IResultListener
@@ -153,7 +154,7 @@ class CameraToRtspPlayer(private val cameraCredential: CameraCredential, private
                 })
 
                 ioTVideoPlayer.setAudioDecoder(AudioStreamDecoder())
-                val decoder = RtspServerVideoStreamDecoder(loginInfo.socketPort, baseContext)
+                val decoder = SurfaceRtspServerStreamDecoder(loginInfo.socketPort, baseContext)
                 ioTVideoPlayer.setVideoDecoder(decoder)
                 decoder.addOnFrameCallback { onFrameUpdate() }
 
