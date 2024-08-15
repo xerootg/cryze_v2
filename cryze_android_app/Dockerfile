@@ -81,7 +81,8 @@ RUN chmod 755 -R /tmp/libhoudini-package-3.0/src/system/*
 FROM redroid/redroid:11.0.0-latest
 
 # copy the libhoudini files so we can use arm64 translation
-COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/ /system/
+COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/lib/libhoudini.so /system/lib/libhoudini.so
+COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/lib64/libhoudini.so /system/lib64/libhoudini.so
 
 # copy the apk and install script
 COPY docker_contents/install.app.rc /vendor/etc/init/install.app.rc
