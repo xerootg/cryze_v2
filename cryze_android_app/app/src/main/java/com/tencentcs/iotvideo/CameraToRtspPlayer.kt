@@ -122,24 +122,23 @@ class CameraToRtspPlayer(val cameraId: String, private val baseContext: MainActi
             messageMgr.removeAppLinkListeners()
             messageMgr.addAppLinkListener {
                 LogUtils.i(CameraToRtspPlayer::class.simpleName, "appLinkListener state = $it")
-                var shouldExit = false
+                var exitSetupLoop = false
                 if (it == APP_LINK_ONLINE) {
                     LogUtils.i(
                         CameraToRtspPlayer::class.simpleName,
                         "Reg success, app online, start live"
                     )
                     addSubscribeDevice(thisCameraCredential)
-                    shouldExit = true
+                    exitSetupLoop = true
                 }
-                if (!shouldExit) {
-                    var shouldShutdown = true
+                if (!exitSetupLoop) {
+                    var shouldRestart = true
                     // if its not starting, and the link token is not expired and
                     if (it != APP_LINK_KICK_OFF && it != APP_LINK_TOKEN_EXPIRED && (APP_LINK_DEV_REACTIVED > it || it >= 18)) {
-                        shouldShutdown = false
+                        shouldRestart = false
                     }
-                    if (shouldShutdown) {
+                    if (shouldRestart) {
                         unregisterSdk()
-                        // login failed and should be restarted
                         start()
                     }
                 }

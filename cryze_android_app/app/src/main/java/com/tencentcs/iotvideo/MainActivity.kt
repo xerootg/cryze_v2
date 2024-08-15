@@ -14,8 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.tencentcs.iotvideo.custom.CameraCredential
-import com.tencentcs.iotvideo.rtsp.IOnFrameCallback
 import com.tencentcs.iotvideo.ui.theme.CustomNativeIotVideoTheme
 import com.tencentcs.iotvideo.utils.LogUtils
 import okhttp3.Call
@@ -48,11 +46,6 @@ class CameraViewModel : ViewModel() {
         val currentList = _cameraList.value
         currentList?.add(camera)
         _cameraList.value = currentList
-    }
-
-    fun containsCamera(cameraId: String): Boolean {
-        val currentList = _cameraList.value
-        return currentList?.any { it.equalsCameraId(cameraId) } ?: false
     }
 
     fun popCamera(): CameraToRtspPlayer? {
@@ -95,7 +88,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Greeting(":) Version: " + IoTVideoSdk.getP2PVersion())
+                    StatusMessage(":) Version: " + IoTVideoSdk.getP2PVersion())
                 }
             }
         }
@@ -106,7 +99,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Greeting(viewModel.getStatusMessage())
+                    StatusMessage(viewModel.getStatusMessage())
                 }
             }
         }
@@ -119,7 +112,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        Greeting(viewModel.getStatusMessage())
+                        StatusMessage(viewModel.getStatusMessage())
                     }
                 }
             }
@@ -142,8 +135,6 @@ class MainActivity : ComponentActivity() {
         IoTVideoSdk.getMessageMgr().removeAppLinkListeners()
         IoTVideoSdk.getMessageMgr().removeModelListeners()
     }
-
-    private var listOfCredential = ArrayList<CameraCredential>()
 
     private fun getCameraIdsFromServer(): Unit
     {
@@ -182,9 +173,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
+fun StatusMessage(name: String, modifier: Modifier = Modifier) {
     Text(
-        text = "Hello $name!",
+        text = name,
         modifier = modifier
     )
 }
@@ -193,6 +184,6 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun GreetingPreview() {
     CustomNativeIotVideoTheme {
-        Greeting("Android")
+        StatusMessage("Android")
     }
 }
