@@ -32,47 +32,50 @@ app.MapGet("/", () => "Hello World!");
 
 app.MapGet("/getCameraIds", () => JsonSerializer.Serialize(cameras.Keys));
 
+// this can't be cached, as the token is one time use
 app.MapGet("/getToken", (string cameraId) =>
 {
-    // ensure cameraId is in the list
-    if (!cameras.Keys.Contains(cameraId))
-    {
-        throw new IndexOutOfRangeException($"Camera ID {cameraId} is not in the list of allowed camera IDs");
-    }
+  // ensure cameraId is in the list
+  if (!cameras.Keys.Contains(cameraId))
+  {
+    throw new IndexOutOfRangeException($"Camera ID {cameraId} is not in the list of allowed camera IDs");
+  }
 
-    var startInfo = new ProcessStartInfo
-    {
-        FileName = "python3", // maybe find a better way to find this? it works most of the time
-        Arguments = $"{pythonScriptPath}{Path.DirectorySeparatorChar}get_camera_token.py {cameraId}",
-        RedirectStandardOutput = true,
-        RedirectStandardError = true, // Add this line to redirect the StandardError stream
-        UseShellExecute = false,
-        CreateNoWindow = true
-    };
+  var startInfo = new ProcessStartInfo
+  {
+    FileName = "python3",
+    Arguments = $"{pythonScriptPath}{Path.DirectorySeparatorChar}get_camera_token.py {cameraId}",
+    RedirectStandardOutput = true,
+    RedirectStandardError = true,
+    UseShellExecute = false,
+    CreateNoWindow = true
+  };
 
-    using var process = Process.Start(startInfo);
+  using var process = Process.Start(startInfo);
 
-    if (process == null)
-    {
-        throw new Exception("Failed to start process");
-    }
+  if (process == null)
+  {
+    throw new Exception("Failed to start process");
+  }
 
-    using var reader = process.StandardOutput;
-    using var errorReader = process.StandardError;
-    string result = reader.ReadToEnd();
-    string error = errorReader.ReadToEnd();
-    process.WaitForExit();
+  using var reader = process.StandardOutput;
+  using var errorReader = process.StandardError;
+  string result = reader.ReadToEnd();
+  string error = errorReader.ReadToEnd();
+  process.WaitForExit();
 
-    if (process.ExitCode != 0)
-    {
-        throw new Exception($"Error occurred: {error}\nResult: {result}");throw new Exception($"Error occurred: {error}\nResult: {result}");
-    }
+  if (process.ExitCode != 0)
+  {
+    throw new Exception($"Error occurred: {error}\nResult: {result}");
+  }
 
-    // result is a json object, we need to append a socketPort field to it so the client knows which port to connect to, preserving the original field types
-    var token = JsonSerializer.Deserialize<Dictionary<string, object>>(result);
-    token["socketPort"] = cameras[cameraId].Port;
+  Console.WriteLine($"Token result: {result}");
 
-    return JsonSerializer.Serialize(token);
+  // result is a json object, we need to append a socketPort field to it so the client knows which port to connect to, preserving the original field types
+  var token = JsonSerializer.Deserialize<DeviceConfiguration>(result) ?? throw new Exception("Failed to deserialize token");
+  token.SocketPort = cameras[cameraId].Port;
+
+  return JsonSerializer.Serialize(token);
 });
 
 app.MapGet("/getCameraConfig", (string cameraId) =>

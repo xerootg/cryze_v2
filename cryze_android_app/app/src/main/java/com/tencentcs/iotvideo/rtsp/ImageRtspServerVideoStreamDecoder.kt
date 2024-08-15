@@ -24,7 +24,7 @@ import com.tencentcs.iotvideo.utils.LogUtils
 import java.io.IOException
 
 
-class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val baseContext : Activity) : ConnectChecker,
+class ImageRtspServerVideoStreamDecoder (private val rtspPort : Int, private val onFrameCallback: IOnFrameCallback, private val baseContext : Activity) : ConnectChecker,
     ClientListener, IVideoDecoder {
     
     private var codec : MediaCodec? = null
@@ -33,16 +33,6 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
     private var videoSource : ImageVideoSource = ImageVideoSource(baseContext)
     private var audioSource: AudioSource = NoAudioSource()
     private var rtspServerStream : RtspServerStream = RtspServerStream(baseContext, rtspPort, this, videoSource, audioSource)
-
-    private var listOfOnFrameCallbacks = mutableListOf<()->Unit>()
-
-    fun addOnFrameCallback(callback: () -> Unit) {
-        listOfOnFrameCallbacks.add(callback)
-    }
-
-    fun onFrame() {
-        listOfOnFrameCallbacks.forEach { it() }
-    }
 
     private var callback: ConnectChecker? = null
     fun setCallback(connectChecker: ConnectChecker?) {
@@ -110,7 +100,7 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
             bufferInfo = MediaCodec.BufferInfo()
             dequeueStatus = codec!!.dequeueOutputBuffer(bufferInfo, 20000L)
         } catch (exception: Exception) {
-            LogUtils.e(RtspServerVideoStreamDecoder::class.simpleName, "receive_frame exception:" + exception.message)
+            LogUtils.e(ImageRtspServerVideoStreamDecoder::class.simpleName, "receive_frame exception:" + exception.message)
         }
         if (dequeueStatus < 0) {
             if (dequeueStatus != INFO_TRY_AGAIN_LATER && dequeueStatus == INFO_OUTPUT_FORMAT_CHANGED) {
@@ -122,7 +112,7 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
         val outputImage = codec!!.getOutputImage(dequeueStatus)
 
         if (outputImage == null) {
-            LogUtils.e(RtspServerVideoStreamDecoder::class.simpleName, "receive_frame error, image is null")
+            LogUtils.e(ImageRtspServerVideoStreamDecoder::class.simpleName, "receive_frame error, image is null")
             return MediaConstant.SEND_PACKET_ERROR
         }
 
@@ -136,13 +126,13 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
 
         codec?.releaseOutputBuffer(dequeueStatus, false)
 
-        onFrame()
+        onFrameCallback.onFrame()
 
         return 0
     }
 
     override fun release() {
-        LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "release")
+        LogUtils.i(ImageRtspServerVideoStreamDecoder::class.simpleName, "release")
         codec?.stop()
         codec?.release()
         stopStream()
@@ -161,14 +151,14 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
         try {
             val mediaCodec = codec
             if (mediaCodec == null) {
-                LogUtils.e(RtspServerVideoStreamDecoder::class.simpleName, "send_packet error:codec is null")
+                LogUtils.e(ImageRtspServerVideoStreamDecoder::class.simpleName, "send_packet error:codec is null")
                 return MediaConstant.SEND_PACKET_ERROR
             }
             val dequeueInputBuffer = mediaCodec.dequeueInputBuffer(20000L)
             if (dequeueInputBuffer >= 0) {
                 val inputBuffer = mediaCodec.getInputBuffer(dequeueInputBuffer)
                 if (inputBuffer == null) {
-                    LogUtils.e(RtspServerVideoStreamDecoder::class.simpleName, "send_packet error, inputBuffer is null")
+                    LogUtils.e(ImageRtspServerVideoStreamDecoder::class.simpleName, "send_packet error, inputBuffer is null")
                     return MediaConstant.SEND_PACKET_ERROR
                 }
                 inputBuffer.clear()
@@ -178,66 +168,65 @@ class RtspServerVideoStreamDecoder (private val rtspPort : Int, private val base
                 return 0
             }
             LogUtils.e(
-                RtspServerVideoStreamDecoder::class.simpleName,
+                ImageRtspServerVideoStreamDecoder::class.simpleName,
                 "send_packet error, try again later " + aVData.pts
             )
             return INPUT_BUFFER_ERROR
         } catch (sendingException: java.lang.Exception) {
-            LogUtils.e(RtspServerVideoStreamDecoder::class.simpleName, "send_packet exception:" +sendingException::class.simpleName + sendingException.message + sendingException.stackTraceToString())
+            LogUtils.e(ImageRtspServerVideoStreamDecoder::class.simpleName, "send_packet exception:" +sendingException::class.simpleName + sendingException.message + sendingException.stackTraceToString())
             return MediaConstant.SEND_PACKET_ERROR
         }
     }
 
     // ConnectChecker implementation
     override fun onConnectionStarted(url: String) {
-        LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onConnectionStarted")
+        LogUtils.i(ImageRtspServerVideoStreamDecoder::class.simpleName, "onConnectionStarted")
         callback?.onConnectionStarted(url)
     }
 
     override fun onConnectionSuccess() {
-        LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onConnectionSuccess")
+        LogUtils.i(ImageRtspServerVideoStreamDecoder::class.simpleName, "onConnectionSuccess")
         callback?.onConnectionSuccess()
         // get a keyframe
         rtspServerStream.requestKeyframe()
     }
 
     override fun onNewBitrate(bitrate: Long) {
-        LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onNewBitrate $bitrate")
         if(bitrate == 0L){
             rtspServerStream.requestKeyframe()
-            LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "requestKeyframe")
+            LogUtils.i(ImageRtspServerVideoStreamDecoder::class.simpleName, "requestKeyframe")
         }
         callback?.onNewBitrate(bitrate)
     }
 
     override fun onConnectionFailed(reason: String) {
-        LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onConnectionFailed $reason")
+        LogUtils.i(ImageRtspServerVideoStreamDecoder::class.simpleName, "onConnectionFailed $reason")
         callback?.onConnectionFailed(reason)
     }
 
     override fun onDisconnect() {
-        LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onDisconnect")
+        LogUtils.i(ImageRtspServerVideoStreamDecoder::class.simpleName, "onDisconnect")
         callback?.onDisconnect()
     }
 
     override fun onAuthError() {
-        LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onAuthError")
+        LogUtils.i(ImageRtspServerVideoStreamDecoder::class.simpleName, "onAuthError")
         callback?.onAuthError()
     }
 
     override fun onAuthSuccess() {
-        LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onAuthSuccess")
+        LogUtils.i(ImageRtspServerVideoStreamDecoder::class.simpleName, "onAuthSuccess")
         callback?.onAuthSuccess()
     }
 
     override fun onClientConnected(client: ServerClient) {
-        LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onClientConnected")
+        LogUtils.i(ImageRtspServerVideoStreamDecoder::class.simpleName, "onClientConnected")
         // request keyframe on client connect so they might sync faster
         rtspServerStream.requestKeyframe()
     }
 
     override fun onClientDisconnected(client: ServerClient) {
-        LogUtils.i(RtspServerVideoStreamDecoder::class.simpleName, "onClientDisconnected")
+        LogUtils.i(ImageRtspServerVideoStreamDecoder::class.simpleName, "onClientDisconnected")
     }
 
 }

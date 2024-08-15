@@ -43,7 +43,7 @@ class AudioStreamDecoder(): IAudioDecoder {
     }
 
     override fun release() {
-        LogUtils.i( RtspServerVideoStreamDecoder::class.simpleName, "release")
+        LogUtils.i( ImageRtspServerVideoStreamDecoder::class.simpleName, "release")
         audioCodec?.stop()
         audioCodec?.release()
     }

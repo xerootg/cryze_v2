@@ -1,84 +1,165 @@
 package com.tencentcs.iotvideo
 
-import android.app.Activity
+import com.tencentcs.iotvideo.IoTVideoSdk.APP_LINK_KICK_OFF
+import com.tencentcs.iotvideo.IoTVideoSdk.APP_LINK_ONLINE
+import com.tencentcs.iotvideo.IoTVideoSdkConstant.IoTSdkState.APP_LINK_DEV_REACTIVED
+import com.tencentcs.iotvideo.IoTVideoSdkConstant.IoTSdkState.APP_LINK_TOKEN_EXPIRED
 import com.tencentcs.iotvideo.custom.CameraCredential
-import com.tencentcs.iotvideo.iotvideoplayer.IAudioRender
-import com.tencentcs.iotvideo.iotvideoplayer.IConnectDevStateListener
-import com.tencentcs.iotvideo.iotvideoplayer.IVideoRender
 import com.tencentcs.iotvideo.iotvideoplayer.IoTVideoPlayer
-import com.tencentcs.iotvideo.iotvideoplayer.codec.AVData
-import com.tencentcs.iotvideo.iotvideoplayer.codec.AVHeader
+import com.tencentcs.iotvideo.iotvideoplayer.LoggingConnectDevStateListener
+import com.tencentcs.iotvideo.iotvideoplayer.PlayerStateEnum
+import com.tencentcs.iotvideo.iotvideoplayer.codec.NullAudioStreamDecoder
 import com.tencentcs.iotvideo.iotvideoplayer.player.PlayerUserData
+import com.tencentcs.iotvideo.iotvideoplayer.render.NullAudioRenderer
+import com.tencentcs.iotvideo.iotvideoplayer.render.NullVideoRenderer
 import com.tencentcs.iotvideo.messagemgr.MessageMgr
-import com.tencentcs.iotvideo.rtsp.AudioStreamDecoder
-import com.tencentcs.iotvideo.rtsp.RtspServerVideoStreamDecoder
+import com.tencentcs.iotvideo.rtsp.IOnFrameCallback
 import com.tencentcs.iotvideo.rtsp.SurfaceRtspServerStreamDecoder
 import com.tencentcs.iotvideo.utils.LogUtils
 import com.tencentcs.iotvideo.utils.Utils.getErrorDescription
 import com.tencentcs.iotvideo.utils.rxjava.IResultListener
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Request
+import okhttp3.Response
+import java.io.IOException
+import kotlin.concurrent.fixedRateTimer
 
-class CameraToRtspPlayer(private val cameraCredential: CameraCredential, private val baseContext: Activity) {
+class CameraToRtspPlayer(val cameraId: String, private val baseContext: MainActivity)
+{
+    class ThisCameraOnFrameCallback : IOnFrameCallback {
+        var frameCount = 0L
+
+        override fun onFrame() {
+            frameCount++
+        }
+    }
 
     var iotVideoPlayer: IoTVideoPlayer = IoTVideoPlayer()
     var playerThread: Thread? = null
-    private var frameCount = 0L
 
-    val port = cameraCredential.socketPort
+    var cameraCredential : CameraCredential? = null
 
-    private var onFrameUpdateCallbacks = mutableListOf<() -> Unit>()
+    val innerOnFrameCallback = ThisCameraOnFrameCallback()
 
-    private fun onFrameUpdate() {
-        for (callback in onFrameUpdateCallbacks) {
-            // Run on UI thread to avoid crash
-            callback()
+    var lastWatchdogFrameCount = 0L
+
+    private var watchdogEnabled = false
+
+    // basically, as soon as start is called, there should be frames within 30 seconds. if not, start the whole stream process again
+    private var watchdog = fixedRateTimer("watchdog", initialDelay = 30_000, period = 10_000) {
+        if (watchdogEnabled && innerOnFrameCallback.frameCount == lastWatchdogFrameCount) {
+            // kill the activity
+            LogUtils.i(CameraToRtspPlayer::class.simpleName, "watchdog timeout for ${cameraId}, killing activity")
+            // need to refresh the token
+            refreshCameraCredentials()
+            start()
+        } else {
+            lastWatchdogFrameCount = innerOnFrameCallback.frameCount
         }
-        frameCount++
     }
 
-    fun addOnFrameUpdateCallback(callback: () -> Unit) {
-        onFrameUpdateCallbacks.add(callback)
+    private fun refreshCameraCredentials(): Unit
+    {
+        cameraCredential = null;
+        var requestCompleted = false;
+        LogUtils.i(CameraToRtspPlayer::class.simpleName, "Getting camera credentials for camera id: $cameraId")
+
+        // get the camera credentials from the server
+        val requestUrl = "${baseContext.cryzeApi}/getToken?cameraId=$cameraId"
+        val request = Request.Builder()
+            .url(requestUrl)
+            .build()
+
+        val requestHandler = object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                throw IOException("Request failed: " + e.message)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string()
+                if (responseBody.isNullOrEmpty())
+                {
+                    LogUtils.e(CameraToRtspPlayer::class.simpleName, "Did not get a response body from the server")
+                    return
+                }
+
+                // log the response body
+                LogUtils.i(CameraToRtspPlayer::class.simpleName, "Response body: $responseBody")
+
+                // the response body is json serialized LoginInfoMessage, deserialize it
+                cameraCredential = CameraCredential.parseFrom(responseBody)
+                requestCompleted = true
+            }
+        }
+
+        baseContext.client.newCall(request).enqueue(requestHandler)
+
+        // wait for the request to complete
+        while (!requestCompleted) {
+            Thread.sleep(100)
+        }
     }
 
+    @Synchronized
     fun start() {
-       // registerIotVideoSdk(loginInfo)
-        IoTVideoSdk.register(cameraCredential.accessId, cameraCredential.accessToken, 3)
+        watchdogEnabled = true
+        if (cameraCredential == null) {
+            refreshCameraCredentials()
+        }
+        var thisCameraCredential = cameraCredential!!
+        IoTVideoSdk.register(thisCameraCredential.accessId, thisCameraCredential.accessToken, 3)
         IoTVideoSdk.getMessageMgr().removeModelListeners()
         IoTVideoSdk.getMessageMgr().addModelListener {
-            LogUtils.d("CLModelListener", "new model message! ${it.device}, path: ${it.messageType}, data: ${it.payload}")
-//            deviceIdList.add(it.device)
+            LogUtils.d(
+                "CLModelListener",
+                "new model message! ${it.device}, path: ${it.messageType}, data: ${it.payload}"
+            )
         }
-        // addAppLinkListener
-        if(MessageMgr.getSdkStatus() != 1)
-        {
-            IoTVideoSdk.getMessageMgr().addAppLinkListener {
+
+        if (MessageMgr.getSdkStatus() != 1) {
+            val messageMgr = IoTVideoSdk.getMessageMgr()
+            messageMgr.removeAppLinkListeners()
+            messageMgr.addAppLinkListener {
                 LogUtils.i(CameraToRtspPlayer::class.simpleName, "appLinkListener state = $it")
                 var shouldExit = false
-                if (it == 1) {
-                    LogUtils.i(CameraToRtspPlayer::class.simpleName, "Reg success, app online, start live")
-                    addSubscribeDevice(cameraCredential)
+                if (it == APP_LINK_ONLINE) {
+                    LogUtils.i(
+                        CameraToRtspPlayer::class.simpleName,
+                        "Reg success, app online, start live"
+                    )
+                    addSubscribeDevice(thisCameraCredential)
                     shouldExit = true
                 }
-                if (!shouldExit)
-                {
-                    var z = true
-                    if (it != 6 && it != 13 && (12 > it || it >= 18))
-                    {
-                        z = false
+                if (!shouldExit) {
+                    var shouldShutdown = true
+                    // if its not starting, and the link token is not expired and
+                    if (it != APP_LINK_KICK_OFF && it != APP_LINK_TOKEN_EXPIRED && (APP_LINK_DEV_REACTIVED > it || it >= 18)) {
+                        shouldShutdown = false
                     }
-                    if (z)
-                    {
-                        IoTVideoSdk.unRegister()
-                        IoTVideoSdk.getMessageMgr().removeAppLinkListeners()
-                        IoTVideoSdk.getMessageMgr().removeModelListeners()
+                    if (shouldShutdown) {
+                        unregisterSdk()
+                        // login failed and should be restarted
+                        start()
                     }
                 }
 
             }
         } else {
-            LogUtils.i(CameraToRtspPlayer::class.simpleName, "appLinkListener() iot is register")
-            addSubscribeDevice(cameraCredential)
+            LogUtils.i(
+                CameraToRtspPlayer::class.simpleName,
+                "appLinkListener() iot is register"
+            )
+            addSubscribeDevice(thisCameraCredential)
         }
+    }
 
+    private fun unregisterSdk()
+    {
+        IoTVideoSdk.unRegister()
+        val messageMgr = IoTVideoSdk.getMessageMgr()
+        messageMgr.removeAppLinkListeners()
+        messageMgr.removeModelListeners()
     }
 
     private fun addSubscribeDevice(loginInfo: CameraCredential) {
@@ -95,94 +176,62 @@ class CameraToRtspPlayer(private val cameraCredential: CameraCredential, private
 
             override fun onSuccess(success: Boolean?) {
                 LogUtils.e("DeviceResultIOT", "onSuccess: $success")
-                val ioTVideoPlayer: IoTVideoPlayer = iotVideoPlayer
+                iotVideoPlayer = IoTVideoPlayer()
 
-                ioTVideoPlayer.mute(true)
-                ioTVideoPlayer.setDataResource("_@." + loginInfo.deviceId, 1, PlayerUserData(2))
-                ioTVideoPlayer.setConnectDevStateListener(object : IConnectDevStateListener
-                {
-                    override fun onStatus(i10: Int) {
-                        LogUtils.i(CameraToRtspPlayer::class.simpleName, "onStatus for iotvideo player: $i10")
-                    }
+                iotVideoPlayer.setDataResource("_@." + loginInfo.deviceId, 1, PlayerUserData(2))
+                iotVideoPlayer.setConnectDevStateListener(LoggingConnectDevStateListener())
+                iotVideoPlayer.setAudioRender(NullAudioRenderer())
+                iotVideoPlayer.setVideoRender(NullVideoRenderer())
 
-                })
-                ioTVideoPlayer.setAudioRender(object : IAudioRender {
-                    override fun flushRender() {
-                    }
+                iotVideoPlayer.setAudioDecoder(NullAudioStreamDecoder())
+                iotVideoPlayer.setVideoDecoder(SurfaceRtspServerStreamDecoder(loginInfo.socketPort, innerOnFrameCallback, baseContext))
+//                iotVideoPlayer.setVideoDecoder(ImageRtspServerVideoStreamDecoder(loginInfo.socketPort, innerOnFrameCallback, baseContext))
 
-                    override fun getWaitRenderDuration(): Long {
-                        return 0L
-                    }
-
-                    override fun onFrameUpdate(aVData: AVData?) {
-                    }
-
-                    override fun onInit(aVHeader: AVHeader?) {
-                    }
-
-                    override fun onRelease() {
-                    }
-
-                    override fun setPlayerVolume(volume: Float) {
-                    }
-
-                })
-
-                // Setting the video render will only get a frame if you use a decoder in android like MediaCodecVideoDecoder,
-                // if you use a custom IVideoDecoder then nothing will get sent to onFrameUpdate
-                ioTVideoPlayer.setVideoRender(object : IVideoRender {
-                    override fun onFrameUpdate(aVData: AVData?) {
-                        LogUtils.d(CameraToRtspPlayer::class.simpleName, "CustomVideoRender onFrameUpdate for iotvideo player, size: ${aVData.toString()}")
-                    }
-
-                    override fun onInit(aVHeader: AVHeader?) {
-                        LogUtils.d(CameraToRtspPlayer::class.simpleName, "IVideoRender override fun onInit(aVHeader: AVHeader?) {\n for iotvideo player, size: ${aVHeader.toString()}")
-                    }
-
-                    override fun onPause() {
-//                LogUtils.d(TAG, "IVideoRender onPause for iotvideo player")
-                    }
-
-                    override fun onRelease() {
-//                LogUtils.d(TAG, "IVideoRender onRelease for iotvideo player")
-                    }
-
-                    override fun onResume() {
-//                LogUtils.d(TAG, "IVideoRender onResume for iotvideo player")
-                    }
-
-                })
-
-                ioTVideoPlayer.setAudioDecoder(AudioStreamDecoder())
-                val decoder = SurfaceRtspServerStreamDecoder(loginInfo.socketPort, baseContext)
-                ioTVideoPlayer.setVideoDecoder(decoder)
-                decoder.addOnFrameCallback { onFrameUpdate() }
-
-                ioTVideoPlayer.setErrorListener { errorNumber ->
+                iotVideoPlayer.setErrorListener { errorNumber ->
                     LogUtils.i(
                         CameraToRtspPlayer::class.simpleName,
                         "errorListener onError for iotvideo player: $errorNumber with message: ${getErrorDescription(errorNumber)}"
                     )
                 }
-                ioTVideoPlayer.setStatusListener { statusCode ->
+                iotVideoPlayer.setStatusListener { statusCode ->
                     LogUtils.i(
                         CameraToRtspPlayer::class.simpleName,
-                        "IStatusListener onStatus for iotvideo player: $statusCode"
+                        "IStatusListener onStatus for IotVideoPlayer: ${PlayerStateEnum.valueOf(statusCode)}($statusCode)"
                     )
                 }
 
-                iotVideoPlayer.play() // start receiving packets
-                LogUtils.i(CameraToRtspPlayer::class.simpleName, "Player state: ${ioTVideoPlayer.playState}");
+                if(playerThread != null && playerThread!!.isAlive)
+                {
+                    // kill the thread
+                    playerThread?.interrupt()
+                    playerThread = null
+                }
+
+                playerThread = Thread {
+                    iotVideoPlayer.play() // start receiving packets
+                }
+
+                playerThread?.start()
+                LogUtils.i(CameraToRtspPlayer::class.simpleName, "Player state: ${iotVideoPlayer.playState}");
             }
         })
     }
 
+    fun release()
+    {
+        playerThread?.interrupt()
+        playerThread = null
+        iotVideoPlayer.stop()
+        iotVideoPlayer.release()
+        watchdog.cancel()
+    }
+
     fun equalsCameraId(deviceId: String): Boolean {
-        return cameraCredential.deviceId == deviceId
+        return cameraId == deviceId
     }
 
     override fun hashCode(): Int{
-        return cameraCredential.deviceId.hashCode()
+        return cameraId.hashCode()
     }
 
     override fun equals(other: Any?): Boolean {
@@ -191,16 +240,16 @@ class CameraToRtspPlayer(private val cameraCredential: CameraCredential, private
 
         other as CameraToRtspPlayer
 
-        return cameraCredential.deviceId == other.cameraCredential.deviceId
+        return cameraId == other.cameraId
     }
 
     override fun toString(): String {
         val stringBuilder = StringBuilder()
         stringBuilder.append("CameraPlayer{")
-        stringBuilder.append("cameraId='").append(cameraCredential.deviceId)
-        stringBuilder.append("cameraPort=").append(cameraCredential.socketPort)
-        stringBuilder.append("framesHandled=").append(frameCount)
-        stringBuilder.append("}")
+        stringBuilder.append("\n\tcameraId='").append(cameraCredential?.deviceId)
+        stringBuilder.append("\n\tcameraPort=").append(cameraCredential?.socketPort)
+        stringBuilder.append("\n\tframesHandled=").append(innerOnFrameCallback.frameCount)
+        stringBuilder.append("\n}")
         return stringBuilder.toString()
     }
 

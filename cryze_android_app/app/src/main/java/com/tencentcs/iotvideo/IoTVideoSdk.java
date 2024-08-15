@@ -33,7 +33,9 @@ import java.util.concurrent.locks.ReentrantLock;
 public class IoTVideoSdk {
 
     public static void unRegister() {
-        unRegister(false);
+        if(registerState != SDK_REGISTER_STATE_UNREGISTERED) {
+            unRegister(false);
+        }
     }
 
     public static class NetWorkStateReceiver extends BroadcastReceiver {

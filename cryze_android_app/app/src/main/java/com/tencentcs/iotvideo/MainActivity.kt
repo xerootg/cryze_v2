@@ -15,6 +15,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.tencentcs.iotvideo.custom.CameraCredential
+import com.tencentcs.iotvideo.rtsp.IOnFrameCallback
 import com.tencentcs.iotvideo.ui.theme.CustomNativeIotVideoTheme
 import com.tencentcs.iotvideo.utils.LogUtils
 import okhttp3.Call
@@ -39,16 +40,8 @@ class CameraViewModel : ViewModel() {
     private val _cameraList = MutableLiveData<ArrayList<CameraToRtspPlayer>>()
     val cameraList: MutableLiveData<ArrayList<CameraToRtspPlayer>> = _cameraList
 
-    private val _framesSent = MutableLiveData<Long>()
-    val framesSent: MutableLiveData<Long> = _framesSent
-
     init {
         _cameraList.value = ArrayList()
-        _framesSent.value = 0L
-    }
-
-    fun incrementFramesSent() {
-        _framesSent.value = _framesSent.value?.plus(1)
     }
 
     fun addCamera(camera: CameraToRtspPlayer) {
@@ -71,21 +64,14 @@ class CameraViewModel : ViewModel() {
         return _cameraList.value?.size ?: 0
     }
 
-    fun activePortList(): List<Int> {
-        val currentList = _cameraList.value
-        return currentList?.map { it.port } ?: emptyList()
-    }
-
     fun getStatusMessage(): String {
         val stringBuilder = StringBuilder()
         stringBuilder.append("There are " + cameraCount() + " cameras active\n")
         for (camera in _cameraList.value!!) {
             stringBuilder.append(camera.toString())
         }
-        stringBuilder.append("frames sent: " + framesSent.value)
         return stringBuilder.toString()
     }
-
 }
 
 class MainActivity : ComponentActivity() {
@@ -94,9 +80,9 @@ class MainActivity : ComponentActivity() {
 
     private val TAG: String = "MainActivityIot"
 
-    private var cryze_api: String = "http://cryze_api:8080"
+    var cryzeApi: String = "http://cryze_api:8080"
 
-    private val client = OkHttpClient()
+    val client = OkHttpClient()
     private val context = this // so i can pass it to the CameraViewer class... maybe not the best idea
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -125,20 +111,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-//
-//        viewModel.framesSent.observe(this) { _ ->
-//            setContent{
-//                Surface(
-//                    modifier = Modifier.fillMaxSize(),
-//                    color = MaterialTheme.colorScheme.background
-//                ) {
-//                    Greeting(viewModel.getStatusMessage())
-//                }
-//            }
-//        }
-
         // every 30 seconds, get the camera ids from the server
-        fixedRateTimer("callbackTimer", initialDelay = 10_000, period = 10_000) {
+        fixedRateTimer("callbackTimer", initialDelay = 1_000, period = 1_000) {
             runOnUiThread {
                 setContent{
                     Surface(
@@ -163,12 +137,17 @@ class MainActivity : ComponentActivity() {
             val camera = viewModel.popCamera()
             camera?.playerThread?.interrupt()
         }
-        unregisterIotVideoSdk()
+
+        IoTVideoSdk.unRegister()
+        IoTVideoSdk.getMessageMgr().removeAppLinkListeners()
+        IoTVideoSdk.getMessageMgr().removeModelListeners()
     }
+
+    private var listOfCredential = ArrayList<CameraCredential>()
 
     private fun getCameraIdsFromServer(): Unit
     {
-        val requestUrl = "$cryze_api/getCameraIds"
+        val requestUrl = "$cryzeApi/getCameraIds"
         val request = Request.Builder()
             .url(requestUrl)
             .build()
@@ -187,73 +166,19 @@ class MainActivity : ComponentActivity() {
                 {
                     val cameraId = cameraIds.getString(i)
                     LogUtils.i(TAG, "Camera ID: $cameraId")
-                    getCameraCredentials(cameraId)
-                }
-            }
-        })
-    }
 
-    private fun getCameraCredentials(cameraId: String): Unit
-    {
-        LogUtils.i(TAG, "Getting camera credentials for camera id: $cameraId")
+                    var camera = CameraToRtspPlayer(cameraId, context)
 
-        // get the camera credentials from the server
-        val requestUrl = "$cryze_api/getToken?cameraId=$cameraId"
-        val request = Request.Builder()
-            .url(requestUrl)
-            .build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                throw IOException("Request failed: " + e.message)
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                val responseBody = response.body?.string()
-                if (responseBody.isNullOrEmpty())
-                {
-                    LogUtils.e(TAG, "Did not get a response body from the server")
-                    return
-                }
-
-                // log the response body
-                LogUtils.i(TAG, "Response body: $responseBody")
-
-                // the response body is json serialized LoginInfoMessage, deserialize it
-                val loginInfo = CameraCredential.parseFrom(responseBody)
-
-                if (!viewModel.containsCamera(loginInfo.deviceId))
-                {
-                    val cameraPlayer = CameraToRtspPlayer(loginInfo, context)
-
-                    cameraPlayer.addOnFrameUpdateCallback {
-                        runOnUiThread {
-                            viewModel.incrementFramesSent()
-                        }
-                    }
-
-                    // add the camera to the view model so the UI can display it
                     runOnUiThread {
-                        viewModel.addCamera(cameraPlayer)
+
+                        viewModel.addCamera(camera)
                     }
 
-                    cameraPlayer.playerThread = Thread {
-                        cameraPlayer.start()
-                    }
-                    cameraPlayer.playerThread?.start() ?: LogUtils.e(TAG, "Camera player thread is null")
+                    camera.start()
                 }
             }
         })
     }
-
-    private fun unregisterIotVideoSdk()
-    {
-        IoTVideoSdk.unRegister()
-        IoTVideoSdk.getMessageMgr().removeAppLinkListeners()
-        IoTVideoSdk.getMessageMgr().removeModelListeners()
-    }
-
-
 }
 
 @Composable

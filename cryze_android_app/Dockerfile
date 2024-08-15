@@ -74,16 +74,16 @@ ADD https://codeload.github.com/natsumerinchan/libhoudini-package/tar.gz/refs/ta
 RUN apk add --no-cache tar gzip
 WORKDIR /tmp
 RUN tar xvf /tmp/libhoudini-android11-x86_64.tar.gz
-RUN chmod 755 /tmp/libhoudini-package-3.0/src/system/lib/libhoudini.so
-RUN chmod 755 /tmp/libhoudini-package-3.0/src/system/lib64/libhoudini.so
+## chmod all the binaries in the package
+RUN chmod 755 -R /tmp/libhoudini-package-3.0/src/system/*
 
 ## final image
 FROM redroid/redroid:11.0.0-latest
 
 # copy the libhoudini files so we can use arm64 translation
-COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/lib/libhoudini.so /system/lib/libhoudini.so
-COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/lib64/libhoudini.so /system/lib64/libhoudini.so
+COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/ /system/
 
 # copy the apk and install script
 COPY docker_contents/install.app.rc /vendor/etc/init/install.app.rc
+COPY --chmod=777 docker_contents/ensure_running.sh /system/bin/ensure_running.sh
 COPY --from=builder /app/app.apk /app/app.apk

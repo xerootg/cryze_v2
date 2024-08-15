@@ -24,7 +24,7 @@ import com.tencentcs.iotvideo.utils.LogUtils
 import java.io.IOException
 
 
-class SurfaceRtspServerStreamDecoder (private val rtspPort : Int, private val baseContext : Activity) : ConnectChecker,
+class SurfaceRtspServerStreamDecoder (private val rtspPort : Int, private val onFrameCallback : IOnFrameCallback, private val baseContext : Activity) : ConnectChecker,
     ClientListener, IVideoDecoder {
     
     private var codec : MediaCodec? = null
@@ -33,16 +33,6 @@ class SurfaceRtspServerStreamDecoder (private val rtspPort : Int, private val ba
     private var videoSource : SurfaceVideoSource = SurfaceVideoSource()
     private var audioSource: AudioSource = NoAudioSource()
     private var rtspServerStream : RtspServerStream = RtspServerStream(baseContext, rtspPort, this, videoSource, audioSource)
-
-    private var listOfOnFrameCallbacks = mutableListOf<()->Unit>()
-
-    fun addOnFrameCallback(callback: () -> Unit) {
-        listOfOnFrameCallbacks.add(callback)
-    }
-
-    fun onFrame() {
-        listOfOnFrameCallbacks.forEach { it() }
-    }
 
     private var callback: ConnectChecker? = null
     fun setCallback(connectChecker: ConnectChecker?) {
@@ -127,7 +117,7 @@ class SurfaceRtspServerStreamDecoder (private val rtspPort : Int, private val ba
         // Send the frame to the output surface
         codec?.releaseOutputBuffer(dequeueStatus, true)
 
-        onFrame()
+        onFrameCallback.onFrame()
 
         return 0
     }
@@ -193,7 +183,6 @@ class SurfaceRtspServerStreamDecoder (private val rtspPort : Int, private val ba
     }
 
     override fun onNewBitrate(bitrate: Long) {
-        LogUtils.i(SurfaceRtspServerStreamDecoder::class.simpleName, "onNewBitrate $bitrate")
         if(bitrate == 0L){
             rtspServerStream.requestKeyframe()
             LogUtils.i(SurfaceRtspServerStreamDecoder::class.simpleName, "requestKeyframe")
