@@ -13,7 +13,6 @@ THANK YOU to Carson Loyal (carTloyal123) for the libraries to connect and get st
 - An x86 machine. I am using libhoudini in `redroid` to make the cryze android app work with the binaries for getting connections. This avoids the overhead of qemu or other android emulators.
 - a kernel compatible with `redroid`. follow [this guide](https://github.com/remote-android/redroid-doc/blob/master/deploy/README.md), optionally starting a redroid container to confirm it works
 - Wyze GWELL cameras. I've tested with `GW_GC1` (Wyze Cam OG) and `GW_BE1` (Wyze Cam Doorbell Pro	), 3 concurrent streams seems stable.
-- Unknown: non-GWELL Wyze cameras. There are references to TOTK in some of the libraries, it might work, but then again, it might not. Let me know if it does work or if it doesn't so I can document it.
 
 To use this, docker compose is easiest.
 1) copy `sample.env` to `.env` - update your details. Wyze API keys can be shared with `wyze-bridge` NOTE: I messed up and didnt exactly use the same variable names as `wyze-bridge` and I need to fix this. as such, there are duplicates.
