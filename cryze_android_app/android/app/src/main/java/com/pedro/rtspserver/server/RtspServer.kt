@@ -88,7 +88,7 @@ class RtspServer(
           if (!serverCommandManager.videoInfoReady()) {
             semaphore.drainPermits()
             Log.i(TAG, "waiting for video info")
-            semaphore.tryAcquire(5000, TimeUnit.MILLISECONDS)
+            semaphore.tryAcquire(10_000, TimeUnit.MILLISECONDS)
           }
           if (!serverCommandManager.videoInfoReady()) {
             onMainThreadHandler {

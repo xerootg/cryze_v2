@@ -12,6 +12,7 @@ import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
 import com.pedro.library.util.sources.audio.AudioSource
 import com.pedro.library.util.sources.audio.NoAudioSource
+import com.pedro.library.view.OrientationForced
 import com.pedro.rtspserver.RtspServerStream
 import com.pedro.rtspserver.server.ClientListener
 import com.pedro.rtspserver.server.ServerClient
@@ -47,10 +48,10 @@ class SurfaceRtspServerStreamDecoder (private val rtspPort : Int, private val on
         val imageHeight = aVHeader.getInteger("height", 0)
         val frameRate = aVHeader.getInteger(AVHeader.KEY_FRAME_RATE, 20)
 
-        val videoFormat = MediaFormat.createVideoFormat(videoMime, imageWidth, imageHeight)
-        videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, frameRate)
-        videoFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2 ) // default: suggested I-frame interval for webcams and h264
-        videoFormat.setInteger("color-format", COLOR_FormatYUV420Flexible)
+        val incomingFormat = MediaFormat.createVideoFormat(videoMime, imageWidth, imageHeight)
+        incomingFormat.setInteger(MediaFormat.KEY_FRAME_RATE, frameRate)
+        incomingFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2 ) // default: suggested I-frame interval for webcams and h264
+        incomingFormat.setInteger("color-format", COLOR_FormatYUV420Flexible)
 
         // clamp the bitrate https://stackoverflow.com/questions/26110337/what-are-valid-bit-rates-to-set-for-mediacodec
         var bitRate: Int = aVHeader.getInteger(AVHeader.KEY_BIT_RATE, (4.8*imageHeight*imageWidth).toInt())
@@ -61,17 +62,20 @@ class SurfaceRtspServerStreamDecoder (private val rtspPort : Int, private val on
             }
             try {
                 val caps = info.getCapabilitiesForType(videoMime)
-                if (caps != null && caps.isFormatSupported(videoFormat)) {
+                if (caps != null && caps.isFormatSupported(incomingFormat)) {
                     bitRate = caps.videoCapabilities.bitrateRange.clamp(bitRate)
-                    videoFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
+                    incomingFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
                     break
                 }
             } catch (e: IllegalArgumentException) {
-                // type is not supported
+                LogUtils.e(SurfaceRtspServerStreamDecoder::class.simpleName, "Error while dynamically configuring codec bitrate: " + e.message)
             }
         }
+
+        // For some wacky reason, the incoming stream from Wyze is rotated 90 degrees. This rotates it back so the MediaCodec can render it correctly
+        incomingFormat.setInteger(MediaFormat.KEY_ROTATION, 90)
         
-        if(!rtspServerStream.prepareVideo(imageWidth, imageHeight, videoFormat.getInteger(MediaFormat.KEY_BIT_RATE), frameRate, rotation = 90)) throw IOException("Error preparing video stream")
+        if(!rtspServerStream.prepareVideo(imageWidth, imageHeight, incomingFormat.getInteger(MediaFormat.KEY_BIT_RATE), frameRate)) throw IOException("Error preparing video stream")
 
         if(!rtspServerStream.prepareAudio(44100, false, 256)) throw IOException("Error preparing audio stream")
 
@@ -83,7 +87,7 @@ class SurfaceRtspServerStreamDecoder (private val rtspPort : Int, private val on
 
         rtspServerStream.startStream("")
 
-        codec?.configure(videoFormat, videoSource.surface, null, 0);
+        codec?.configure(incomingFormat, videoSource.surface, null, 0);
         mediaFormat = codec?.outputFormat
         codec?.start()
 

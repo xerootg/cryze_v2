@@ -47,10 +47,10 @@ class ImageRtspServerVideoStreamDecoder (private val rtspPort : Int, private val
         val imageHeight = aVHeader.getInteger("height", 0)
         val frameRate = aVHeader.getInteger(AVHeader.KEY_FRAME_RATE, 20)
 
-        val videoFormat = MediaFormat.createVideoFormat(videoMime, imageWidth, imageHeight)
-        videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, frameRate)
-        videoFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2 ) // default: suggested I-frame interval for webcams and h264
-        videoFormat.setInteger("color-format", COLOR_FormatYUV420Flexible)
+        val incomingFormat = MediaFormat.createVideoFormat(videoMime, imageWidth, imageHeight)
+        incomingFormat.setInteger(MediaFormat.KEY_FRAME_RATE, frameRate)
+        incomingFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2 ) // default: suggested I-frame interval for webcams and h264
+        incomingFormat.setInteger("color-format", COLOR_FormatYUV420Flexible)
 
         // clamp the bitrate https://stackoverflow.com/questions/26110337/what-are-valid-bit-rates-to-set-for-mediacodec
         var bitRate: Int = aVHeader.getInteger(AVHeader.KEY_BIT_RATE, (4.8*imageHeight*imageWidth).toInt())
@@ -61,17 +61,20 @@ class ImageRtspServerVideoStreamDecoder (private val rtspPort : Int, private val
             }
             try {
                 val caps = info.getCapabilitiesForType(videoMime)
-                if (caps != null && caps.isFormatSupported(videoFormat)) {
+                if (caps != null && caps.isFormatSupported(incomingFormat)) {
                     bitRate = caps.videoCapabilities.bitrateRange.clamp(bitRate)
-                    videoFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
+                    incomingFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
                     break
                 }
             } catch (e: IllegalArgumentException) {
                 // type is not supported
             }
         }
+
+        // For some wacky reason, the incoming stream from Wyze is rotated 90 degrees. This rotates it back so the MediaCodec can render it correctly
+        incomingFormat.setInteger(MediaFormat.KEY_ROTATION, 90)
         
-        if(!rtspServerStream.prepareVideo(imageWidth, imageHeight, videoFormat.getInteger(MediaFormat.KEY_BIT_RATE), frameRate, rotation = 90)) throw IOException("Error preparing video stream")
+        if(!rtspServerStream.prepareVideo(imageWidth, imageHeight, incomingFormat.getInteger(MediaFormat.KEY_BIT_RATE), frameRate, rotation = 90)) throw IOException("Error preparing video stream")
 
         if(!rtspServerStream.prepareAudio(44100, false, 256)) throw IOException("Error preparing audio stream")
 
@@ -82,7 +85,7 @@ class ImageRtspServerVideoStreamDecoder (private val rtspPort : Int, private val
         rtspServerStream.setVideoCodec(VideoCodec.H264)
 
         // Configure the codec to decode only, we are passing the image to the VideoSource which will pass it to the surface to encode
-        codec?.configure(videoFormat, null, null, 8);
+        codec?.configure(incomingFormat, null, null, 8);
         mediaFormat = codec?.outputFormat
         codec?.start()
 

@@ -95,12 +95,25 @@ RUN tar xvf /tmp/libhoudini-android11-x86_64.tar.gz
 ## chmod all the binaries in the package
 RUN chmod 755 -R /tmp/libhoudini-package-3.0/src/system/*
 
+FROM alpine:3.14 AS busybox-builder
+ADD https://github.com/meefik/busybox/releases/download/1.34.1/busybox-v1_34_1.zip /
+RUN apk add --no-cache zip
+RUN unzip /busybox-v1_34_1.zip -d /busybox
+RUN chmod +x /busybox/x86_64/bin/busybox
+# we don't need it, but there's also /busybox-v1_34_1/x86_64/bin/ssl_helper
+
 ## final image
 FROM redroid/redroid:11.0.0-latest
 
 # copy the libhoudini files so we can use arm64 translation
 COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/lib/libhoudini.so /system/lib/libhoudini.so
 COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/lib64/libhoudini.so /system/lib64/libhoudini.so
+
+# add busybox
+COPY --from=busybox-builder /busybox/x86_64/bin/busybox /system/bin/busybox
+
+# setup eth1 to use dhcp, this will be our physical connection to the network containing wyze cameras
+COPY --chmod=755 docker_contents/udhcpc.script /system/etc/udhcpc.script
 
 # copy the apk and install script
 COPY docker_contents/install.app.rc /vendor/etc/init/install.app.rc
