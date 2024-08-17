@@ -1,6 +1,6 @@
-FROM openjdk:18-jdk-slim as builder
+# syntax=docker/dockerfile:1.7-labs
 
-LABEL maintainer "Carson Loyal (from Amir)"
+FROM openjdk:18-jdk-slim AS app-builder
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -8,9 +8,13 @@ WORKDIR /
 #=============================
 # Install Dependenices 
 #=============================
-SHELL ["/bin/bash", "-c"]   
+SHELL ["/bin/bash", "-c"]
 
-RUN apt update && apt install -y curl sudo wget unzip bzip2 libdrm-dev libxkbcommon-dev libgbm-dev libasound-dev libnss3 libxcursor1 libpulse-dev libxshmfence-dev xauth xvfb x11vnc fluxbox wmctrl libdbus-glib-1-2 jq
+RUN apt update &&\
+    apt install -y curl sudo wget unzip bzip2 \
+    libdrm-dev libxkbcommon-dev libgbm-dev libasound-dev \
+    libnss3 libxcursor1 libpulse-dev libxshmfence-dev \
+    xauth xvfb x11vnc fluxbox wmctrl libdbus-glib-1-2 jq
 
 #==============================
 # Android SDK ARGS
@@ -40,8 +44,9 @@ ENV DOCKER="true"
 #============================================
 RUN wget https://dl.google.com/android/repository/${ANDROID_CMD} -P /tmp && \
               unzip -d $ANDROID_SDK_ROOT /tmp/$ANDROID_CMD && \
-              mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/tools && cd $ANDROID_SDK_ROOT/cmdline-tools &&  mv NOTICE.txt source.properties bin lib tools/  && \
-              cd $ANDROID_SDK_ROOT/cmdline-tools/tools && ls
+              mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/tools && \
+              cd $ANDROID_SDK_ROOT/cmdline-tools && \
+              mv NOTICE.txt source.properties bin lib tools/
 
 #============================================
 # Install required package using SDK manager
@@ -49,23 +54,36 @@ RUN wget https://dl.google.com/android/repository/${ANDROID_CMD} -P /tmp && \
 RUN yes Y | sdkmanager --licenses 
 RUN yes Y | sdkmanager --verbose --no_https ${ANDROID_SDK_PACKAGES} 
 
-#============================================
-# Create required emulator
-#============================================
-ARG EMULATOR_NAME="nexus"
-ARG EMULATOR_DEVICE="Nexus 6"
-ENV EMULATOR_NAME=$EMULATOR_NAME
-ENV DEVICE_NAME=$EMULATOR_DEVICE
-# install the emulator package
-RUN yes Y | sdkmanager --install "emulator"
-RUN echo "no" | avdmanager --verbose create avd --force --name "${EMULATOR_NAME}" --device "${EMULATOR_DEVICE}" --package "${EMULATOR_PACKAGE}"
+#===========================================
+# cache the dependencies. really, just speeds up rebuilds
+#===========================================
+WORKDIR /app
+
+# copy everything except the actual application, allowing us to cache a baseline
+COPY ./android/build.gradle.kts /app/
+COPY ./android/gradle.properties /app/
+COPY ./android/settings.gradle.kts /app/
+COPY ./android/gradle/ /app/gradle/
+COPY ./android/gradlew /app/
+COPY ./android/app/build.gradle.kts /app/app/
+
+ENV GRADLE_USER_HOME=/app/gradle_home
+
+# Cache Gradle and the project dependencies
+RUN mkdir -p $GRADLE_USER_HOME && \
+    chmod +x gradlew && \
+    ./gradlew build --no-daemon || true
 
 #============================================
 # build the apk
 #============================================
-COPY . /app
-WORKDIR /app
-RUN chmod +x gradlew && ./gradlew --no-daemon assembleDebug && mv app/build/outputs/apk/debug/app-debug.apk ./app.apk
+# NOTE: this is only copying the app subfolder. anything in the project root unrelated to gradle bootstrapping needs to be copied too
+COPY ./android /app 
+
+# produce a debug apk
+RUN chmod +x gradlew && \
+    ./gradlew --no-daemon assembleDebug && \
+    mv app/build/outputs/apk/debug/app-debug.apk ./app.apk
 
 ## libhoudini builder, for arm64 translation
 FROM alpine:3.14 AS libhoudini-builder
@@ -87,4 +105,4 @@ COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/lib64/libh
 # copy the apk and install script
 COPY docker_contents/install.app.rc /vendor/etc/init/install.app.rc
 COPY --chmod=777 docker_contents/ensure_running.sh /system/bin/ensure_running.sh
-COPY --from=builder /app/app.apk /app/app.apk
+COPY --from=app-builder /app/app.apk /app/app.apk

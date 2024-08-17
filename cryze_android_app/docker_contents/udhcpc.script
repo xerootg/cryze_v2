@@ -1,0 +1,11 @@
+# /system/etc/udhcpc.script
+#!/system/bin/sh
+
+case "$1" in
+    deconfig)
+        ndc interface setcfg eth1 0.0.0.0
+        ;;
+    renew|bound)
+        ndc interface setcfg eth1 $ip $mask $router up
+        ;;
+esac
