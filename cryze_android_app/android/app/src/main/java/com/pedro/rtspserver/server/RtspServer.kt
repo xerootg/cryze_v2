@@ -338,4 +338,8 @@ class RtspServer(
     private const val VPN_INTERFACE = "tun"
     private const val DEFAULT_IP = "0.0.0.0"
   }
+
+  override fun toString(): String {
+    return "RtspServer(\n\t\t running=$running),\n\t\t clients=${clients.size}),\n\t\t sentFrames=${sentAudioFrames + sentVideoFrames},\n\t\t droppedFrames=${droppedAudioFrames + droppedVideoFrames})"
+  }
 }

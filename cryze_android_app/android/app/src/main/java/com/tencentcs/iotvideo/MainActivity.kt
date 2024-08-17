@@ -62,17 +62,26 @@ class CameraViewModel : ViewModel() {
 
     fun getStatusMessage(): String {
         val stringBuilder = StringBuilder()
-        stringBuilder.append("There are " + cameraCount() + " cameras active\n")
+        stringBuilder.appendLine("There are " + cameraCount() + " cameras active:")
         for (camera in _cameraList.value!!) {
-            stringBuilder.append(camera.toString())
+            stringBuilder.appendLine(camera.toString())
         }
         return stringBuilder.toString()
+    }
+
+    fun removeCamera(cameraId: String) {
+        val currentList = _cameraList.value
+        val removed = currentList?.removeIf {
+            it.cameraId == cameraId
+        }
+        if (removed == true) LogUtils.i("CameraViewModel", "Removed camera $cameraId") else LogUtils.i("CameraViewModel", "Failed to remove camera $cameraId")
+        _cameraList.value = currentList
     }
 }
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: CameraViewModel by viewModels()
+    val viewModel: CameraViewModel by viewModels()
 
     private val TAG: String = "MainActivityIot"
 
@@ -108,7 +117,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // every 30 seconds, get the camera ids from the server
-        fixedRateTimer("callbackTimer", initialDelay = 1_000, period = 1_000) {
+        fixedRateTimer("callbackTimer", initialDelay = 5_000, period = 5_000) {
             runOnUiThread {
                 setContent{
                     Surface(
@@ -161,13 +170,7 @@ class MainActivity : ComponentActivity() {
                     val cameraId = cameraIds.getString(i)
                     LogUtils.i(TAG, "Camera ID: $cameraId")
 
-                    var camera = CameraToRtspPlayer(cameraId, context)
-
-                    runOnUiThread {
-
-                        viewModel.addCamera(camera)
-                    }
-                    camera.start()
+                    CameraToRtspPlayerFactory(cameraId, context).register()
                 }
             }
         })

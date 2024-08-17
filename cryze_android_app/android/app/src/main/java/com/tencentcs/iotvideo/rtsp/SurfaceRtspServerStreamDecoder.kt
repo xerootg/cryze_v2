@@ -224,4 +224,8 @@ class SurfaceRtspServerStreamDecoder (private val rtspPort : Int, private val on
         LogUtils.i(SurfaceRtspServerStreamDecoder::class.simpleName, "onClientDisconnected")
     }
 
+    override fun toString(): String {
+        return rtspServerStream.toString()
+    }
+
 }

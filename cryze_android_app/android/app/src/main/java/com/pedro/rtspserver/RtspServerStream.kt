@@ -59,4 +59,8 @@ class RtspServerStream(
   override fun setAudioCodecImp(codec: AudioCodec) {
     rtspServer.setAudioCodec(codec)
   }
+
+  override fun toString(): String {
+    return rtspServer.toString()
+  }
 }

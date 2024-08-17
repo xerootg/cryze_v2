@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.7-labs
-
 FROM openjdk:18-jdk-slim AS app-builder
 
 ENV DEBIAN_FRONTEND noninteractive

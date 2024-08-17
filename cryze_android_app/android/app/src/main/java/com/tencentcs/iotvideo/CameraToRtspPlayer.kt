@@ -27,7 +27,7 @@ import java.io.IOException
 import java.util.Timer
 import kotlin.concurrent.fixedRateTimer
 
-class CameraToRtspPlayer(val cameraId: String, private val baseContext: MainActivity)
+class CameraToRtspPlayer(val cameraId: String, private val rtspPlaterEventHandler: IRtspPlayerEventHandler, private val baseContext: MainActivity)
 {
     class ThisCameraOnFrameCallback : IOnFrameCallback {
         var frameCount = 0L
@@ -36,6 +36,8 @@ class CameraToRtspPlayer(val cameraId: String, private val baseContext: MainActi
             frameCount++
         }
     }
+
+    var rtspServerStreamDecoder: SurfaceRtspServerStreamDecoder? = null
 
     var iotVideoPlayer: IoTVideoPlayer = IoTVideoPlayer()
     var playerThread: Thread? = null
@@ -47,28 +49,23 @@ class CameraToRtspPlayer(val cameraId: String, private val baseContext: MainActi
     var lastWatchdogFrameCount = 0L
 
     private var watchdogEnabled = false
-    private var watchdogShouldExit = false
+    var watchdogShouldExit = false
 
     // basically, as soon as start is called, there should be frames within 30 seconds. if not, start the whole stream process again
-    private var watchdog = getWatchdog()
+    private var watchdog = fixedRateTimer("watchdog", initialDelay = 30_000, period = 10_000) {
+        if (watchdogShouldExit) {
+            cancel()
+            return@fixedRateTimer
+        }
+        if (watchdogEnabled && innerOnFrameCallback.frameCount == lastWatchdogFrameCount) {
+            watchdogShouldExit = true // prevent the watchdog from firing again
+            // kill the activity
+            LogUtils.i(CameraToRtspPlayer::class.simpleName, "watchdog timeout for ${cameraId}, killing activity")
 
-    private fun getWatchdog(initialDelay : Long = 30_000) : Timer
-    {
-        watchdogShouldExit = false
-        return fixedRateTimer("watchdog", initialDelay = initialDelay, period = 10_000) {
-            if (watchdogShouldExit) {
-                cancel()
-                return@fixedRateTimer
-            }
-            if (watchdogEnabled && innerOnFrameCallback.frameCount == lastWatchdogFrameCount) {
-                // kill the activity
-                LogUtils.i(CameraToRtspPlayer::class.simpleName, "watchdog timeout for ${cameraId}, killing activity")
-                // need to refresh the token
-                refreshCameraCredentials()
-                start()
-            } else {
-                lastWatchdogFrameCount = innerOnFrameCallback.frameCount
-            }
+            // let the outer loop handle this
+            rtspPlaterEventHandler.onWatchdogTimeout()
+        } else {
+            lastWatchdogFrameCount = innerOnFrameCallback.frameCount
         }
     }
 
@@ -99,6 +96,11 @@ class CameraToRtspPlayer(val cameraId: String, private val baseContext: MainActi
 
                 // log the response body
                 LogUtils.i(CameraToRtspPlayer::class.simpleName, "Response body: $responseBody")
+
+                if (!response.isSuccessful) {
+                    LogUtils.e(CameraToRtspPlayer::class.simpleName, "Request failed with status code: ${response.code}")
+                    throw IOException("Request failed with status code: ${response.code} and message: ${response.message}")
+                }
 
                 // the response body is json serialized LoginInfoMessage, deserialize it
                 cameraCredential = CameraCredential.parseFrom(responseBody)
@@ -196,8 +198,10 @@ class CameraToRtspPlayer(val cameraId: String, private val baseContext: MainActi
                 iotVideoPlayer.setVideoRender(NullVideoRenderer())
 
                 iotVideoPlayer.setAudioDecoder(NullAudioStreamDecoder())
-                iotVideoPlayer.setVideoDecoder(SurfaceRtspServerStreamDecoder(loginInfo.socketPort, innerOnFrameCallback, baseContext))
-//                iotVideoPlayer.setVideoDecoder(ImageRtspServerVideoStreamDecoder(loginInfo.socketPort, innerOnFrameCallback, baseContext))
+
+                // set the stream decoder
+                rtspServerStreamDecoder = SurfaceRtspServerStreamDecoder(loginInfo.socketPort, innerOnFrameCallback, baseContext)
+                iotVideoPlayer.setVideoDecoder(rtspServerStreamDecoder)
 
                 iotVideoPlayer.setErrorListener { errorNumber ->
                     LogUtils.i(
@@ -238,17 +242,37 @@ class CameraToRtspPlayer(val cameraId: String, private val baseContext: MainActi
         return IoTVideoSdk.lanDevConnectable(PREFIX_THIRD_ID + cameraId) == 1
     }
 
-    fun release()
-    {
-        playerThread?.interrupt()
-        playerThread = null
-        iotVideoPlayer.stop()
-        iotVideoPlayer.release()
-        watchdog.cancel()
+    fun stop() {
+        try {
+            iotVideoPlayer.stop()
+
+            // Give the player a chance to stop
+            var maxWaitTime = 10_000
+            while (iotVideoPlayer.playState != PlayerStateEnum.STATE_STOP || iotVideoPlayer.playState == -1) {
+                maxWaitTime -= 100
+                if (maxWaitTime <= 0) {
+                    break
+                }
+                LogUtils.i(CameraToRtspPlayer::class.simpleName, "Waiting for player to stop: ${iotVideoPlayer.playState} ($maxWaitTime ms remaining)")
+                Thread.sleep(100)
+            }
+
+            playerThread?.interrupt()
+            iotVideoPlayer.release()
+
+            rtspServerStreamDecoder?.stopStream()
+            rtspServerStreamDecoder?.release()
+            rtspServerStreamDecoder = null
+            unregisterSdk()
+        } catch (e: Exception) {
+            LogUtils.e(CameraToRtspPlayer::class.simpleName, "Error stopping player: ${e.message}")
+        }
     }
 
-    fun equalsCameraId(deviceId: String): Boolean {
-        return cameraId == deviceId
+    fun release()
+    {
+        playerThread = null
+        watchdog.cancel()
     }
 
     override fun hashCode(): Int{
@@ -270,6 +294,7 @@ class CameraToRtspPlayer(val cameraId: String, private val baseContext: MainActi
         stringBuilder.append("\n\tcameraId='").append(cameraCredential?.deviceId)
         stringBuilder.append("\n\tcameraPort=").append(cameraCredential?.socketPort)
         stringBuilder.append("\n\tframesHandled=").append(innerOnFrameCallback.frameCount)
+        stringBuilder.append("\n\tstreamerState=").append(rtspServerStreamDecoder?.toString())
         stringBuilder.append("\n}")
         return stringBuilder.toString()
     }
