@@ -114,6 +114,6 @@ COPY --from=busybox-builder /busybox/x86_64/bin/busybox /system/bin/busybox
 COPY --chmod=755 docker_contents/udhcpc.script /system/etc/udhcpc.script
 
 # copy the apk and install script
-COPY docker_contents/install.app.rc /vendor/etc/init/install.app.rc
+COPY --chmod=644 docker_contents/install.app.rc /vendor/etc/init/install.app.rc
 COPY --chmod=777 docker_contents/ensure_running.sh /system/bin/ensure_running.sh
 COPY --from=app-builder /app/app.apk /app/app.apk
