@@ -100,8 +100,25 @@ RUN unzip /busybox-v1_34_1.zip -d /busybox
 RUN chmod +x /busybox/x86_64/bin/busybox
 # we don't need it, but there's also /busybox-v1_34_1/x86_64/bin/ssl_helper
 
+FROM gcc:latest AS launcher-builder
+
+WORKDIR /app
+
+# Copy the source code
+COPY fork_logger/ .
+
+# Compile the binary statically
+RUN gcc -static -o launcher main.c
+RUN gcc -static -o dockercat dockercat.c
+
 ## final image
 FROM redroid/redroid:11.0.0-latest
+#SHELL ["/system/bin/busybox", "ash", "-c"]
+
+COPY --from=launcher-builder --chmod=777 /app/launcher /system/bin/launcher
+COPY --from=launcher-builder --chmod=777 /app/dockercat /system/bin/dockercat
+## named zzdockercat so it is loaded after logcat. rc files are alphabetized at load time
+COPY --chmod=644 fork_logger/dockercat.rc /vendor/etc/init/zzdockercat.rc
 
 # copy the libhoudini files so we can use arm64 translation
 COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/lib/libhoudini.so /system/lib/libhoudini.so

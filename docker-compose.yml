@@ -23,12 +23,10 @@ services:
       context: ./cryze_android_app
       dockerfile: Dockerfile
     privileged: true
-    volumes:
-      - /dev/dri/renderD128:/dev/dri/renderD128
     ports:
       - 5555:5555
     entrypoint: # need to override the entrypoint to run the app on arch, see the redroid docs
-      - /init
+      - /system/bin/launcher
       - qemu=1
       - androidboot.hardware=redroid
       - androidboot.use_memfd=1

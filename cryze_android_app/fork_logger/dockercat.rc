@@ -1,0 +1,9 @@
+service zzdockercat /system/bin/dockercat
+## copies the logcat output into a fifo created by /system/bin/launcher
+    class late_start
+    user root
+    group log
+    oneshot
+    seclabel u:r:logcat:s0
+    # Ensure docker-logger starts after logcatd
+    onrestart logcatd
