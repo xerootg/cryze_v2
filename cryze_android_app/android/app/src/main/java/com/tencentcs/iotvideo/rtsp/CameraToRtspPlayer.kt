@@ -1,10 +1,14 @@
-package com.tencentcs.iotvideo
+package com.tencentcs.iotvideo.rtsp
 
+import com.tencentcs.iotvideo.ICameraStream
+import com.tencentcs.iotvideo.IoTVideoSdk
 import com.tencentcs.iotvideo.IoTVideoSdk.APP_LINK_KICK_OFF
 import com.tencentcs.iotvideo.IoTVideoSdk.APP_LINK_ONLINE
 import com.tencentcs.iotvideo.IoTVideoSdk.PREFIX_THIRD_ID
 import com.tencentcs.iotvideo.IoTVideoSdkConstant.IoTSdkState.APP_LINK_DEV_REACTIVED
 import com.tencentcs.iotvideo.IoTVideoSdkConstant.IoTSdkState.APP_LINK_TOKEN_EXPIRED
+import com.tencentcs.iotvideo.MainActivity
+import com.tencentcs.iotvideo.ThisCameraOnFrameCallback
 import com.tencentcs.iotvideo.custom.CameraCredential
 import com.tencentcs.iotvideo.iotvideoplayer.IoTVideoPlayer
 import com.tencentcs.iotvideo.iotvideoplayer.LoggingConnectDevStateListener
@@ -14,8 +18,6 @@ import com.tencentcs.iotvideo.iotvideoplayer.player.PlayerUserData
 import com.tencentcs.iotvideo.iotvideoplayer.render.NullAudioRenderer
 import com.tencentcs.iotvideo.iotvideoplayer.render.NullVideoRenderer
 import com.tencentcs.iotvideo.messagemgr.MessageMgr
-import com.tencentcs.iotvideo.rtsp.IOnFrameCallback
-import com.tencentcs.iotvideo.rtsp.SurfaceRtspServerStreamDecoder
 import com.tencentcs.iotvideo.utils.LogUtils
 import com.tencentcs.iotvideo.utils.Utils.getErrorDescription
 import com.tencentcs.iotvideo.utils.rxjava.IResultListener
@@ -24,32 +26,24 @@ import okhttp3.Callback
 import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
-import java.util.Timer
 import kotlin.concurrent.fixedRateTimer
 
-class CameraToRtspPlayer(val cameraId: String, private val rtspPlaterEventHandler: IRtspPlayerEventHandler, private val baseContext: MainActivity)
-{
-    class ThisCameraOnFrameCallback : IOnFrameCallback {
-        var frameCount = 0L
-
-        override fun onFrame() {
-            frameCount++
-        }
-    }
+class CameraToRtspPlayer(override val cameraId: String, private val rtspPlaterEventHandler: IRtspPlayerEventHandler, private val baseContext: MainActivity) :
+    ICameraStream {
 
     var rtspServerStreamDecoder: SurfaceRtspServerStreamDecoder? = null
 
     var iotVideoPlayer: IoTVideoPlayer = IoTVideoPlayer()
-    var playerThread: Thread? = null
+    private var playerThread: Thread? = null
 
     var cameraCredential : CameraCredential? = null
 
     val innerOnFrameCallback = ThisCameraOnFrameCallback()
 
-    var lastWatchdogFrameCount = 0L
+    private var lastWatchdogFrameCount = 0L
 
     private var watchdogEnabled = false
-    var watchdogShouldExit = false
+    private var watchdogShouldExit = false
 
     // basically, as soon as start is called, there should be frames within 30 seconds. if not, start the whole stream process again
     private var watchdog = fixedRateTimer("watchdog", initialDelay = 30_000, period = 10_000) {
@@ -117,7 +111,7 @@ class CameraToRtspPlayer(val cameraId: String, private val rtspPlaterEventHandle
     }
 
     @Synchronized
-    fun start() {
+    override fun start() {
         watchdogEnabled = true
         if (cameraCredential == null) {
             refreshCameraCredentials()
@@ -242,7 +236,7 @@ class CameraToRtspPlayer(val cameraId: String, private val rtspPlaterEventHandle
         return IoTVideoSdk.lanDevConnectable(PREFIX_THIRD_ID + cameraId) == 1
     }
 
-    fun stop() {
+    override fun stop() {
         try {
             iotVideoPlayer.stop()
 
@@ -269,7 +263,7 @@ class CameraToRtspPlayer(val cameraId: String, private val rtspPlaterEventHandle
         }
     }
 
-    fun release()
+    override fun release()
     {
         playerThread = null
         watchdog.cancel()

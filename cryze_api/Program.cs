@@ -9,13 +9,27 @@ foreach (var cameraIdPair in
   throw new Exception("CAMERA_IDS environment variable is not set; it should be a semicolon-separated list of camera IDs")
   )
 {
+  // three positions, camera ID, port, and server type
   var pair = cameraIdPair.Split(':');
-  if (pair.Length == 2 && int.TryParse(pair[1], out int port))
+  var port = 0;
+  if (pair.Length == 2 || pair.Length == 3 && int.TryParse(pair[1], out port))
   {
+    if(pair.Length == 2)
+    {
+      Console.WriteLine("WARNING: No server type specified, defaulting to RTSP");
+    }
+
+    // ports need to be in the unassigned range
+    if(port < 1025 || port > 65535)
+    {
+      throw new Exception("Port is not a valid integer");
+    }
+
     var cameraConfig = new CameraConfig
     {
       CameraId = pair[0],
-      Port = port
+      Port = port,
+      ServerType = pair.Length == 3 ? pair[2] : "RTSP"
     };
     cameras.Add(pair[0], cameraConfig);
   }
@@ -30,7 +44,10 @@ app.UseDeveloperExceptionPage();
 
 app.MapGet("/", () => "Hello World!");
 
-app.MapGet("/getCameraIds", () => JsonSerializer.Serialize(cameras.Keys));
+app.MapGet("/getCameraIds", () => {
+  // needs to return a list of camera IDs and their types so we can construct the camera list on the client
+  return JsonSerializer.Serialize(cameras.Select(x => new { x.Key, x.Value.ServerType }));
+});
 
 // this can't be cached, as the token is one time use
 app.MapGet("/getToken", (string cameraId) =>

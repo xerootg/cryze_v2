@@ -1,4 +1,4 @@
-package com.tencentcs.iotvideo
+package com.tencentcs.iotvideo.rtsp
 
 interface IRtspPlayerEventHandler {
     fun onWatchdogTimeout()

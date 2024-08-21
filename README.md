@@ -11,8 +11,8 @@ THANK YOU to Carson Loyal (carTloyal123) for the libraries to connect and get st
 
 ## Features
 - *uses local streaming by default*
-- provides one rtsp server per camera
-- runs well in docker when a GPU is available
+- provides one rtsp/MJPEG/raw server per camera, additional details below
+- runs well in docker when a GPU is available, RAW is suggested. see frigate config below for how to use.
 
 ## Prereqs
 - An x86 machine. I am using libhoudini in `redroid` to make the cryze android app work with the binaries for getting connections. This avoids the overhead of qemu or other android emulators.
@@ -43,10 +43,24 @@ I am using Android Studio for the android app, and just attaching to my remote d
 - deal with camera events like disconnects/connects
 - move to the latest version of IoTVideoSDK
 
-## Use
-The RTSP server has issues. All sockets are written on the same thread and there's multi-connection issues. Use go2rtc/frigate/something to keep the connection count down.
+## Camera configurations
+There are three server types that the android container can provide, all three have advantages and disadvantages:
+- RTSP - Just works, but requires good hardware accelleration support, of which is flakey in Redroid.
+- MJPEG - visible in a browser, re-renderable in ffmpeg, but uses absolutely no hardware accelleration and will only accept one connection at a time so its best used for testing.
+- RAW - gives you a raw h264 stream straight out of the IotVideoPlayer library, which requires zero hardware accelleration. This will also only accept one connection at a time, but using ffmpeg, this gives you the best flexability.
 
-AGAIN: DO NOT DIRECTLY OPEN THESE RTSP CONNECTIONS.
+The CAMERA_IDS variable is a comma seperated list of cameras, id:port:serverType
+
+for example: `CAMERA_IDS=GW_BE1_LONGNAMEHERE:8000:RAW,GW_BE1_ANOTHERONE:8001:RTSP`
+- camera GW_BE1_LONGNAMEHERE will have a h264 server running on 8000
+- camera GW_BE1_ANOTHERONE will have a RTSP server running on 8001
+
+You can get your camera IDs a couple ways, the easiest way if you run docker-wyze-bridge is to look at the all cameras tab and expand the details on your favorite gwell camera and grab the `mac` field:
+![a picture of the details section of a gwell camera in docker-wyze-bridge](images/dockerwyzebridgecameradetails.png)
+
+# RAW server type use
+`ffmpeg -i tcp://<ip-of-android-container>:8001 -f flv -listen 1 rtmp://0.0.0.0:1234` - Makes a rtmp stream avalible at rtmp://<your IP>:1234
+`ffmpeg:tcp://cryze_android_app:8001?video=0#video=h264` - web2rtc url, see full example below as I use in frigate
 
 My personal docker-compose.yml is combined with a frigate and wyze-bridge container to consolidate everything
 
@@ -72,17 +86,16 @@ services:
       API_ID: ${WYZE_API_ID}
       API_KEY: ${WYZE_API_KEY}
       WB_AUTH: False # Set to false to disable web and stream auth.
+
   frigate:
     container_name: frigate
     privileged: true # this may not be necessary for all setups
     restart: unless-stopped
     image: ghcr.io/blakeblackshear/frigate:stable
-    shm_size: "256mb" # update for your cameras based on calculation above
+    shm_size: "256mb" # update for your cameras based on calculation in frigate docs
     networks:
       - frigate
-    devices:
-      - /dev/bus/usb:/dev/bus/usb # Passes the USB Coral, needs to be modified for other versions
-      - /dev/dri/renderD128:/dev/dri/renderD128 # For intel hwaccel, needs to be updated for your har>    volumes:
+    volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./config:/config
       - ./storage:/media/frigate
@@ -117,30 +130,33 @@ services:
       context: ./cryze_android_app
       dockerfile: Dockerfile
     privileged: true
-    volumes:
-      - /dev/dri/renderD128:/dev/dri/renderD128
     ports:
       - 5555:5555
-    entrypoint: # need to override the entrypoint to run the app on arch, see the redroid docs
-      - /init
+    entrypoint:
+      - /system/bin/launcher
       - qemu=1
       - androidboot.hardware=redroid
-      - androidboot.use_memfd=1
       - androidboot.redroid_net_ndns=1
       - androidboot.redroid_net_dns1=127.0.0.11
+# see the redroid docs for configs below here, they are OS specific
+      - androidboot.use_memfd=1
       - androidboot.redroid_gpu_mode=host
       - androidboot.redroid_gpu_node=/dev/dri/renderD128
 ```
 
 I am using frigate with a config like this:
 ```yaml
+go2rtc:
+  streams:
+    doorbell: ffmpeg:tcp://cryze_android_app:8001?video=0#video=h264
+
 cameras:
   doorbell:
     enabled: true
     ffmpeg:
       retry_interval: 0
       inputs:
-        - path: rtsp://cryze_android_app:8001
+        - path: rtsp://127.0.0.1:8554/doorbell
           input_args: preset-rtsp-restream
           roles:
             - detect

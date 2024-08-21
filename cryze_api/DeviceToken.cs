@@ -20,6 +20,9 @@ public class DeviceConfiguration
   [JsonPropertyName("socketPort")]
   public int SocketPort { get; set; }
 
+  [JsonPropertyName("serverType")]
+  public string ServerType { get; set; } = string.Empty;
+
   public bool IsExpired()
   {
     int currentTimestamp = (int)DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;

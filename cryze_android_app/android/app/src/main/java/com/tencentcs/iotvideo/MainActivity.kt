@@ -14,10 +14,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import com.tencentcs.iotvideo.bitmapstream.CameraToImagePlayerFactory
+import com.tencentcs.iotvideo.custom.ServerType
+import com.tencentcs.iotvideo.h264streamer.CameraToH264StreamPlayerFactory
 import com.tencentcs.iotvideo.iotvideoplayer.ConnectMode
+import com.tencentcs.iotvideo.rtsp.CameraToRtspPlayer
+import com.tencentcs.iotvideo.rtsp.CameraToRtspPlayerFactory
 import com.tencentcs.iotvideo.ui.theme.CustomNativeIotVideoTheme
 import com.tencentcs.iotvideo.utils.LogUtils
-import kotlinx.coroutines.sync.Semaphore
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -38,20 +42,20 @@ class MainApplication : Application() {
 }
 
 class CameraViewModel : ViewModel() {
-    private val _cameraList = MutableLiveData<ArrayList<CameraToRtspPlayer>>()
-    val cameraList: MutableLiveData<ArrayList<CameraToRtspPlayer>> = _cameraList
+    private val _cameraList = MutableLiveData<ArrayList<ICameraStream>>()
+    val cameraList: MutableLiveData<ArrayList<ICameraStream>> = _cameraList
 
     init {
         _cameraList.value = ArrayList()
     }
 
-    fun addCamera(camera: CameraToRtspPlayer) {
+    fun addCamera(camera: ICameraStream) {
         val currentList = _cameraList.value
         currentList?.add(camera)
-        _cameraList.value = currentList
+        _cameraList.value = currentList!!
     }
 
-    fun popCamera(): CameraToRtspPlayer? {
+    fun popCamera(): ICameraStream? {
         val currentList = _cameraList.value
         return currentList?.removeAt(0)
     }
@@ -75,7 +79,7 @@ class CameraViewModel : ViewModel() {
             it.cameraId == cameraId
         }
         if (removed == true) LogUtils.i("CameraViewModel", "Removed camera $cameraId") else LogUtils.i("CameraViewModel", "Failed to remove camera $cameraId")
-        _cameraList.value = currentList
+        _cameraList.value = currentList!!
     }
 }
 
@@ -85,7 +89,7 @@ class MainActivity : ComponentActivity() {
 
     private val TAG: String = "MainActivityIot"
 
-    var cryzeApi: String = "http://cryze_api:8080"
+    var cryzeApi: String = "http://cryze_api:8080" // I really need to find a better way to do this
 
     val client = OkHttpClient()
     private val context = this // so i can pass it to the CameraViewer class... maybe not the best idea
@@ -140,7 +144,8 @@ class MainActivity : ComponentActivity() {
         while (viewModel.cameraCount() > 0)
         {
             val camera = viewModel.popCamera()
-            camera?.playerThread?.interrupt()
+            camera?.stop()
+            camera?.release()
         }
 
         IoTVideoSdk.unRegister()
@@ -167,10 +172,19 @@ class MainActivity : ComponentActivity() {
                 val cameraIds = JSONArray(responseBody)
                 for (i in 0 until cameraIds.length())
                 {
-                    val cameraId = cameraIds.getString(i)
-                    LogUtils.i(TAG, "Camera ID: $cameraId")
+                    // its a kvp arrangement: [{"Key":"GW_BE1_LONGNAMEHERE","ServerType":"RAW"},{"Key":"GW_BE1_ANOTHERONE","ServerType":"RAW"}]
+                    val cameraId = cameraIds.getJSONObject(i).getString("Key")
+                    val serverType = ServerType.fromValue(cameraIds.getJSONObject(i).getString("ServerType"))
 
-                    CameraToRtspPlayerFactory(cameraId, context).register()
+                    LogUtils.i(TAG, "Camera ID: $cameraId Server Type: $serverType")
+                    when(serverType)
+                    {
+                        ServerType.RAW -> CameraToH264StreamPlayerFactory(cameraId, context).register()
+                        ServerType.MJPEG -> CameraToImagePlayerFactory(cameraId, context).register()
+                        ServerType.RTSP -> CameraToRtspPlayerFactory(cameraId, context).register()
+                        // always when in doubt, register as a rtsp server
+                        else -> CameraToRtspPlayerFactory(cameraId, context).register()
+                    }
                 }
             }
         })

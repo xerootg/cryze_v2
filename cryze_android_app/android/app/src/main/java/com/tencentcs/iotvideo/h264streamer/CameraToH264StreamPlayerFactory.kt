@@ -1,10 +1,12 @@
-package com.tencentcs.iotvideo
+package com.tencentcs.iotvideo.h264streamer
 
+import com.tencentcs.iotvideo.MainActivity
+import com.tencentcs.iotvideo.bitmapstream.CameraToH264StreamPlayer
 import com.tencentcs.iotvideo.utils.LogUtils
 
-class CameraToRtspPlayerFactory(val cameraId: String, val context: MainActivity) {
+class CameraToH264StreamPlayerFactory(val cameraId: String, val context: MainActivity) {
 
-    private var rtspPlayer: CameraToRtspPlayer? = null
+    private var h264StreamPlayer: CameraToH264StreamPlayer? = null
     private var runnerThread: Thread? = null
 
     fun register()
@@ -15,9 +17,11 @@ class CameraToRtspPlayerFactory(val cameraId: String, val context: MainActivity)
 
     private fun createPlayer(): Unit
     {
-        rtspPlayer = CameraToRtspPlayer(cameraId, object : IRtspPlayerEventHandler
+        h264StreamPlayer = CameraToH264StreamPlayer(cameraId, object :
+            IH264PlayerEventHandler
         {
             override fun onWatchdogTimeout() {
+                LogUtils.d(CameraToH264StreamPlayerFactory::class.java.simpleName, "$cameraId onWatchdogTimeout")
                 stopPlayer() // kill this one before starting a new one
 
                 runnerThread = Thread {
@@ -34,19 +38,20 @@ class CameraToRtspPlayerFactory(val cameraId: String, val context: MainActivity)
         createPlayer()
 
         context.runOnUiThread {
-            context.viewModel.addCamera(rtspPlayer!!)
+            context.viewModel.addCamera(h264StreamPlayer!!)
         }
 
-        rtspPlayer?.start()
+        h264StreamPlayer?.start()
     }
 
     private fun stopPlayer()
     {
-        rtspPlayer?.stop()
-        rtspPlayer?.release()
-        rtspPlayer = null
+        h264StreamPlayer?.stop()
+        h264StreamPlayer?.release()
+        h264StreamPlayer = null
 
         runnerThread?.interrupt()
+        runnerThread?.join()
         runnerThread = null
 
         try {
@@ -54,12 +59,13 @@ class CameraToRtspPlayerFactory(val cameraId: String, val context: MainActivity)
                 context.viewModel.removeCamera(cameraId)
             }
         } catch (e: Exception) {
-            LogUtils.e(CameraToRtspPlayerFactory::class.java.simpleName, "Exception in stopPlayer while removing camera from viewModel ${e.message}")
+            LogUtils.e(CameraToH264StreamPlayerFactory::class.java.simpleName, "Exception in stopPlayer while removing camera from viewModel ${e.message}")
         }
     }
 
     fun release()
     {
+        LogUtils.d(CameraToH264StreamPlayerFactory::class.java.simpleName, "Releasing player")
         stopPlayer()
     }
 
