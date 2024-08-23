@@ -4,13 +4,16 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.tencentcs.iotvideo.IoTVideoSdk;
+import com.tencentcs.iotvideo.messagemgr.EventMessage;
+import com.tencentcs.iotvideo.messagemgr.IEventListener;
 import com.tencentcs.iotvideo.netconfig.data.NetMatchTokenResult;
 import com.tencentcs.iotvideo.utils.LogUtils;
 import com.tencentcs.iotvideo.utils.rxjava.IResultListener;
+import com.google.gson.Gson;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-public class NetConfig implements INetConfig {
+public class NetConfig implements INetConfig, IEventListener {
     private static final String DEVICE_ONLINE_TOPIC = "$Device.DevBindChkResult";
     private static final String ERROR_TOKEN_IS_NULL = "error_token_is_null";
     private static final int ERROR_TOKEN_RESPONSE_NULL = 2021;
@@ -21,14 +24,25 @@ public class NetConfig implements INetConfig {
     private ConcurrentHashMap<Integer, IResultListener<Boolean>> mMsgIdMap;
 
     private static native int nativeSubscribeDevice(String str, String str2);
+    private INetConfigResultListener netConfigResultListener;
+    private IEventListener mDeviceOnlineListener;
 
-    public static class NetConfigHolder {
-        private static final NetConfig INSTANCE = new NetConfig();
+    private static class NetConfigHolder {
+            private static final NetConfig INSTANCE = new NetConfig();
 
-        private NetConfigHolder() {
+            private NetConfigHolder() {
+            }
         }
-    }
 
+
+    @Override
+    public void onNotify(EventMessage eventMessage) {
+        if (eventMessage != null && NetConfig.DEVICE_ONLINE_TOPIC.equals(eventMessage.topic)) {
+            NetConfigResult netConfigResult = new Gson().fromJson(eventMessage.data, NetConfigResult.class);
+            LogUtils.i(NetConfig.TAG, "onNotify:" + netConfigResult);
+        }
+
+    }
 
     public static NetConfig getInstance() {
         return NetConfigHolder.INSTANCE;
@@ -54,10 +68,41 @@ public class NetConfig implements INetConfig {
 
     }
 
+    // seems like it was a one-shot in the original sdk
+    public void cancelIntervalQueryTask() {
+        LogUtils.i(TAG, "cancelIntervalQueryTask");
+//        Disposable disposable = this.deviceOnlineStatusDis;
+//        if (disposable != null && !disposable.isDisposed()) {
+//            try {
+//                this.deviceOnlineStatusDis.dispose();
+//            } catch (Exception e10) {
+//                LogUtils.e(TAG, "Exception:" + e10.getMessage());
+//            }
+//            this.deviceOnlineStatusDis = null;
+//        }
+    }
+
+
+    // This is used to register a new device.
     @Override
     public void registerDeviceOnlineCallback(INetConfigResultListener iNetConfigResultListener) {
-
+        LogUtils.i(TAG, "-----registerDeviceOnlineCallback-----");
+        this.netConfigResultListener = iNetConfigResultListener;
+        if (this.mDeviceOnlineListener == null) {
+            this.mDeviceOnlineListener = eventMessage -> {
+                if (eventMessage != null && NetConfig.DEVICE_ONLINE_TOPIC.equals(eventMessage.topic)) {
+                    LogUtils.i(NetConfig.TAG, "onNotify:" + eventMessage.data);
+                    NetConfig.this.cancelIntervalQueryTask();
+                    NetConfigResult netConfigResult = new Gson().fromJson(eventMessage.data, NetConfigResult.class);
+                    if (NetConfig.this.netConfigResultListener != null) {
+                        NetConfig.this.netConfigResultListener.onNetConfigResult(netConfigResult);
+                    }
+                }
+            };
+        }
+        IoTVideoSdk.getMessageMgr().addEventListener(this.mDeviceOnlineListener);
     }
+
 
     @Override
     public int subscribeDevice(String token, String deviceId) {

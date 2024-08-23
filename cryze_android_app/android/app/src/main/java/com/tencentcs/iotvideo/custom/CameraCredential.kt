@@ -27,7 +27,8 @@ data class CameraCredential(
     val expireTime: Long,
     val timestamp: Double,
     val socketPort: Int,
-    val serverType: ServerType,
+    val serverType: ServerType? = null,
+    var isUsed: Boolean? = false // used to check if the credential has already been used
 ) {
     companion object {
         fun parseFrom(responseBody: String?): CameraCredential {

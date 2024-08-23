@@ -7,8 +7,9 @@ import android.text.TextUtils;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
-import com.tencentcs.iotvideo.IoTVideoError;
+import com.tencentcs.iotvideo.IoTVideoErrors;
 import com.tencentcs.iotvideo.IoTVideoSdk;
+import com.tencentcs.iotvideo.StackTraceUtils;
 import com.tencentcs.iotvideo.iotvideoplayer.codec.AVData;
 import com.tencentcs.iotvideo.iotvideoplayer.codec.AVHeader;
 import com.tencentcs.iotvideo.iotvideoplayer.codec.IAudioDecoder;
@@ -495,7 +496,7 @@ public class IoTVideoPlayer implements IIoTVideoPlayer {
                 } else {
                     IResultListener iResultListener4 = iResultListener;
                     if (iResultListener4 != null) {
-                        iResultListener4.onError(IoTVideoError.ERROR_RESULT, null);
+                        iResultListener4.onError(IoTVideoErrors.ERROR_RESULT, null);
                     }
                     LogUtils.i(IoTVideoPlayer.TAG, "changeDefinition error:" + Arrays.toString(success));
                 }
@@ -632,11 +633,9 @@ public class IoTVideoPlayer implements IIoTVideoPlayer {
 
     @Override
     public boolean isConnectingOrConnectedDev() {
+        StackTraceUtils.logStackTrace(TAG, "isConnectingOrConnectedDev");
         int playState = getPlayState();
-        if (2 != playState && 3 != playState && 4 != playState && 5 != playState && 6 != playState && 8 != playState) {
-            return false;
-        }
-        return true;
+        return playState == PlayerStateEnum.STATE_IDLE || playState == PlayerStateEnum.STATE_PREPARING;
     }
 
     @Override
@@ -827,16 +826,16 @@ public class IoTVideoPlayer implements IIoTVideoPlayer {
     }
 
     @Override
-    public void setDataResource(String str, int i10, PlayerUserData playerUserData) {
+    public void setDataResource(String deviceId, int callType, PlayerUserData playerUserData) {
         LogUtils.i(TAG, "setDataResource nativeObject:0x" + Long.toHexString(this.nativeObject));
-        LogUtils.i(TAG, "setDataResource deviceId:" + str + "; callType:" + i10 + "; userData:" + playerUserData);
+        LogUtils.i(TAG, "setDataResource deviceId:" + deviceId + "; callType:" + callType + "; userData:" + playerUserData);
         if (!IoTVideoSdk.isSupportedCurrentAbi()) {
             return;
         }
-        if (TextUtils.isEmpty(str)) {
+        if (TextUtils.isEmpty(deviceId)) {
             LogUtils.i(TAG, "setDataResource failure:the id of dev is null");
         } else {
-            nativeSetDataResource(str, i10, playerUserData);
+            nativeSetDataResource(deviceId, callType, playerUserData);
         }
     }
 

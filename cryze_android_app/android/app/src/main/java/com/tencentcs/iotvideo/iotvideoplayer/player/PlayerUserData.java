@@ -8,8 +8,8 @@ public class PlayerUserData {
     public long playbackTime;
     public short sourceId;
 
-    public PlayerUserData(int i10) {
-        this.definition = i10;
+    public PlayerUserData(int definition) {
+        this.definition = definition;
         this.playbackTime = 0L;
         this.fileStartTime = 0L;
         this.sourceId = (short) 0;

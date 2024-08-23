@@ -90,7 +90,9 @@ app.MapGet("/getToken", (string cameraId) =>
 
   // result is a json object, we need to append a socketPort field to it so the client knows which port to connect to, preserving the original field types
   var token = JsonSerializer.Deserialize<DeviceConfiguration>(result) ?? throw new Exception("Failed to deserialize token");
+  
   token.SocketPort = cameras[cameraId].Port;
+  token.ServerType = cameras[cameraId].ServerType;
 
   return JsonSerializer.Serialize(token);
 });

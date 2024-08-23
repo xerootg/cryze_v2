@@ -1,7 +1,7 @@
 package com.tencentcs.iotvideo.messagemgr;
 
 import android.annotation.SuppressLint;
-import com.tencentcs.iotvideo.IoTVideoError;
+import com.tencentcs.iotvideo.IoTVideoErrors;
 import com.tencentcs.iotvideo.utils.ByteUtils;
 import com.tencentcs.iotvideo.utils.LogUtils;
 import java.util.ArrayList;
@@ -41,7 +41,7 @@ public class DelPlaybackDataMessage {
             int bytesToInt7 = ByteUtils.bytesToInt(bArr, i11 + 4);
             LogUtils.i(TAG, "parseData: statusCode = " + bytesToInt7);
             if (bytesToInt7 != 22077) {
-                arrayList.add(new DelPlaybackData.FailDeleteInfo(bytesToInt6 + bytesTolong, bytesToInt7 + IoTVideoError.DEL_FILE_CODE_NONE));
+                arrayList.add(new DelPlaybackData.FailDeleteInfo(bytesToInt6 + bytesTolong, bytesToInt7 + IoTVideoErrors.DEL_FILE_CODE_NONE));
             }
         }
         this.mDelPlaybackData = new DelPlaybackData(bytesToInt2, bytesToInt3, arrayList);

@@ -5,21 +5,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.tencentcs.iotvideo.bitmapstream.CameraToImagePlayerFactory
 import com.tencentcs.iotvideo.custom.ServerType
-import com.tencentcs.iotvideo.h264streamer.CameraToH264StreamPlayerFactory
-import com.tencentcs.iotvideo.iotvideoplayer.ConnectMode
-import com.tencentcs.iotvideo.rtsp.CameraToRtspPlayer
-import com.tencentcs.iotvideo.rtsp.CameraToRtspPlayerFactory
+import com.tencentcs.iotvideo.restreamer.RestreamingVideoPlayer
+import com.tencentcs.iotvideo.restreamer.RestreamingVideoPlayerFactory
+import com.tencentcs.iotvideo.restreamer.interfaces.ICameraStream
 import com.tencentcs.iotvideo.ui.theme.CustomNativeIotVideoTheme
 import com.tencentcs.iotvideo.utils.LogUtils
 import okhttp3.Call
@@ -34,10 +34,6 @@ import kotlin.concurrent.fixedRateTimer
 class MainApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        val userInfo = hashMapOf<String, Any>()
-        userInfo["IOT_HOST"] = "|wyze-mars-asrv.wyzecam.com"
-        userInfo["IOT_P2P_PORT_TYPE"] = ConnectMode.Mode.LAN
-        IoTVideoSdk.init(this, userInfo)
     }
 }
 
@@ -89,14 +85,17 @@ class MainActivity : ComponentActivity() {
 
     private val TAG: String = "MainActivityIot"
 
-    var cryzeApi: String = "http://cryze_api:8080" // I really need to find a better way to do this
+    var cryzeApi: String = "http://192.168.1.3:8080" // I really need to find a better way to do this
 
     val client = OkHttpClient()
     private val context = this // so i can pass it to the CameraViewer class... maybe not the best idea
 
+    private val factories = ArrayList<RestreamingVideoPlayerFactory>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Initial content while loading
         setContent {
             CustomNativeIotVideoTheme {
                 // A surface container using the 'background' color from the theme
@@ -104,35 +103,35 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    StatusMessage(":) Version: " + IoTVideoSdk.getP2PVersion())
-                }
-            }
-        }
-
-        viewModel.cameraList.observe(this) { _ ->
-            setContent{
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    StatusMessage(viewModel.getStatusMessage())
+                    Text(
+                        text = ":) Version: ${IoTVideoSdk.getP2PVersion()} Loading camera streams..."
+                    )
                 }
             }
         }
 
         // every 30 seconds, get the camera ids from the server
-        fixedRateTimer("callbackTimer", initialDelay = 5_000, period = 5_000) {
+        fixedRateTimer("UIUpdater", initialDelay = 3_000, period = 1_000) {
             runOnUiThread {
-                setContent{
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        StatusMessage(viewModel.getStatusMessage())
+                setContent {
+                    CustomNativeIotVideoTheme {
+                        Surface( // A surface container using the 'background' color from the theme
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.background
+                        ) {
+                            Column( // a scroll area for the status messages
+                                modifier = Modifier.fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                Text(text = viewModel.getStatusMessage())
+                            }
+                        }
                     }
                 }
             }
         }
+
+
 
         // start getting frames hooked up
         getCameraIdsFromServer()
@@ -143,7 +142,10 @@ class MainActivity : ComponentActivity() {
         // stop all the threads
         while (viewModel.cameraCount() > 0)
         {
-            val camera = viewModel.popCamera()
+            var camera: ICameraStream? = null
+            runOnUiThread {
+                camera = viewModel.popCamera()
+            }
             camera?.stop()
             camera?.release()
         }
@@ -172,18 +174,13 @@ class MainActivity : ComponentActivity() {
                 val cameraIds = JSONArray(responseBody)
                 for (i in 0 until cameraIds.length())
                 {
-                    // its a kvp arrangement: [{"Key":"GW_BE1_LONGNAMEHERE","ServerType":"RAW"},{"Key":"GW_BE1_ANOTHERONE","ServerType":"RAW"}]
+                    //TODO: make the server only send the camera ids, not the port type too
                     val cameraId = cameraIds.getJSONObject(i).getString("Key")
-                    val serverType = ServerType.fromValue(cameraIds.getJSONObject(i).getString("ServerType"))
 
-                    LogUtils.i(TAG, "Camera ID: $cameraId Server Type: $serverType")
-                    when(serverType)
-                    {
-                        ServerType.RAW -> CameraToH264StreamPlayerFactory(cameraId, context).register()
-                        ServerType.MJPEG -> CameraToImagePlayerFactory(cameraId, context).register()
-                        ServerType.RTSP -> CameraToRtspPlayerFactory(cameraId, context).register()
-                        // always when in doubt, register as a rtsp server
-                        else -> CameraToRtspPlayerFactory(cameraId, context).register()
+                    val camera = RestreamingVideoPlayer(cameraId, context)
+                    camera.start()
+                    runOnUiThread {
+                        viewModel.addCamera(camera)
                     }
                 }
             }
@@ -191,18 +188,3 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
-fun StatusMessage(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = name,
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    CustomNativeIotVideoTheme {
-        StatusMessage("Android")
-    }
-}

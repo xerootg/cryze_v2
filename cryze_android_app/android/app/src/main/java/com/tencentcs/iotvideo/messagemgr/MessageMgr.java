@@ -1,12 +1,13 @@
 package com.tencentcs.iotvideo.messagemgr;
 
+import static com.tencentcs.iotvideo.AppLinkState.APP_LINK_STATE_UNSET;
+
 import android.app.Application;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 
 import com.tencentcs.iotvideo.IoTVideoSdk;
-import com.tencentcs.iotvideo.iotvideoplayer.ConnectMode;
+import com.tencentcs.iotvideo.AppLinkState;
 import com.tencentcs.iotvideo.utils.LogUtils;
 import com.tencentcs.iotvideo.utils.FileIOUtils;
 import com.tencentcs.iotvideo.utils.rxjava.IResultListener;
@@ -24,16 +25,12 @@ public class MessageMgr implements IMessageMgr {
 
     public static final String TAG = "CLMessageMgr";
     private static Application mContext = null;
-    private static int mLastAppReceiveSdkStatus = -1;
-    private static int mSdkStatus = 2;
+    private static AppLinkState mLastAppReceiveSdkStatus = APP_LINK_STATE_UNSET;
     private CopyOnWriteArrayList<IAppLinkListener> mAppLinkListeners = new CopyOnWriteArrayList<>();
     private ConcurrentHashMap<Integer, IResultListener<Boolean>> mSubscribeDeviceMap = new ConcurrentHashMap<>();
     private List<IModelListener> mModelListeners = new ArrayList();
     private List<IEventListener> mEventListeners = new ArrayList();
     private Handler mMainHandler = new Handler(Looper.getMainLooper());
-
-
-
 
     public static class MessageMgrHolder {
         private static final MessageMgr INSTANCE = new MessageMgr();
@@ -46,14 +43,24 @@ public class MessageMgr implements IMessageMgr {
         return MessageMgrHolder.INSTANCE;
     }
 
-    public static int getSdkStatus() {
-        return mSdkStatus;
+    // When there's multiple cameras initializing at a time, it becomes a bit of a race condition.
+    private static AppLinkState _mSdkStatus = AppLinkState.APP_LINK_OFFLINE;
+    public static final Object statusLockObject = new Object();
+    public static AppLinkState getSdkStatus() {
+        synchronized (statusLockObject) {
+            return _mSdkStatus;
+        }
+    }
+    private static void setSdkStatus(AppLinkState status) {
+        synchronized (statusLockObject) {
+            _mSdkStatus = status;
+        }
     }
 
     public void register(Application application) {
         LogUtils.i(TAG, "MessageMgr register");
         mContext = application;
-        mLastAppReceiveSdkStatus = -1;
+        mLastAppReceiveSdkStatus = APP_LINK_STATE_UNSET;
         nativeRegister();
     }
 
@@ -74,12 +81,13 @@ public class MessageMgr implements IMessageMgr {
     private native void nativeUnregister();
 
     private static void onModelMessage(String deviceId, long id, int type, int error, String path, String data) {
-        LogUtils.i(TAG, "onModelMessage deviceId:" + deviceId + ", id:" + id + ", type:" + type + ", error:" + error + ", path:" + path + ", data:" + data);
+        //LogUtils.i(TAG, "onModelMessage deviceId:" + deviceId + ", id:" + id + ", type:" + type + ", error:" + error + ", path:" + path + ", data:" + data);
         getInstance().dispatchModelMessage(new ModelMessage(deviceId, id, type, error, path, data));
     }
 
     private static void onEventMessage(final String topic, final String data) {
         LogUtils.i(TAG, "onEventMessage topic:" + topic + ", data:" + data);
+        getInstance().dispatchEventMessage(new EventMessage(MessageType.MSG_TYPE_EVENT.ordinal(), topic, data));
     }
 
     private static void onDataMessage(String deviceId, long id, int type, int error, byte[] data) {
@@ -87,6 +95,8 @@ public class MessageMgr implements IMessageMgr {
     }
 
     private static void onSubscribeDevice(final int messageId, final int error) {
+        // get the error code value if possible
+        // eg 20022
         LogUtils.i(TAG, "onSubscribeDevice ==========start==========");
         if (getInstance().mSubscribeDeviceMap != null && getInstance().mSubscribeDeviceMap.size() > 0)
         {
@@ -165,44 +175,45 @@ public class MessageMgr implements IMessageMgr {
 
     // This gets called from inside the Native Library from best I can tell
     private static void onAppLinkStateChanged(final int status) {
+        AppLinkState state = AppLinkState.fromInt(status);
         LogUtils.d(TAG, "onAppLinkStateChanged "+ status);
-        switch (status) {
-            case 1:
-                LogUtils.i(TAG, "App link online");
+        switch (state) {
+            case APP_LINK_ONLINE:
+                LogUtils.d(TAG, "App link online");
                 break;
-            case 2:
-                LogUtils.i(TAG, "App link offline");
+            case APP_LINK_OFFLINE:
+                LogUtils.d(TAG, "App link offline");
                 break;
-            case 3:
-                LogUtils.i(TAG, "App link access token error");
+            case APP_LINK_ACCESS_TOKEN_ERROR:
+                LogUtils.d(TAG, "App link access token error");
                 break;
-            case 4:
-                LogUtils.i(TAG, "App link TID init error");
+            case APP_LINK_TID_INIT_ERROR:
+                LogUtils.d(TAG, "App link TID init error");
                 break;
-            case 5:
-                LogUtils.i(TAG, "App link invalid TID");
+            case APP_LINK_INVALID_TID:
+                LogUtils.d(TAG, "App link invalid TID");
                 break;
-            case 6:
-                LogUtils.i(TAG, "App link kick off");
+            case APP_LINK_KICK_OFF:
+                LogUtils.d(TAG, "App link kick off");
                 break;
-            case 7:
-                LogUtils.i(TAG, "App link dev disable");
+            case APP_LINK_DEV_DISABLE:
+                LogUtils.d(TAG, "App link dev disable");
                 break;
         }
-        setSdkStatus(status);
-        if (mLastAppReceiveSdkStatus == status)
+        setSdkStatus(state);
+        if (mLastAppReceiveSdkStatus == state)
         {
-            LogUtils.i(TAG, "same status as last notify, don't send app, sdk state: " + getSdkStatus());
+            LogUtils.d(TAG, "same status as last notify, don't send app, sdk state: " + getSdkStatus());
         }
         else if (getInstance().mAppLinkListeners.isEmpty())
         {
-            LogUtils.i(TAG, "no app link listeners to send to! status: " + getSdkStatus());
+            LogUtils.w(TAG, "no app link listeners to send to! status: " + getSdkStatus());
         } else {
             if (isMainThread())
             {
                 LogUtils.i(TAG, "onAppLinkStateChanged notify app status at uiThread");
                 for (IAppLinkListener mAppLinkListener : getInstance().mAppLinkListeners) {
-                    mAppLinkListener.onAppLinkStateChanged(status);
+                    mAppLinkListener.onAppLinkStateChanged(state);
                 }
             } else {
                 getInstance().mMainHandler.post(new Runnable() {
@@ -210,12 +221,57 @@ public class MessageMgr implements IMessageMgr {
                     public void run() {
                         for (IAppLinkListener mAppLinkListener : MessageMgr.getInstance().mAppLinkListeners) {
                             LogUtils.i(TAG, "onAppLinkStateChanged notify app status at subThread");
-                            mAppLinkListener.onAppLinkStateChanged(status);
+                            mAppLinkListener.onAppLinkStateChanged(state);
                         }
                     }
                 });
             }
-            mLastAppReceiveSdkStatus = status;
+            mLastAppReceiveSdkStatus = state;
+        }
+    }
+
+    /* renamed from: com.tencentcs.iotvideo.messagemgr.MessageMgr$14 */
+    /* loaded from: classes12.dex */
+//    class RunnableC1567814 implements Runnable {
+//        final /* synthetic */ String val$data;
+//        final /* synthetic */ String val$topic;
+//
+//        RunnableC1567814(String str, String str2) {
+//            r1 = str;
+//            r2 = str2;
+//        }
+//
+//        @Override // java.lang.Runnable
+//        public void run() {
+//            Iterator it = MessageMgr.getInstance().mEventListeners.iterator();
+//            while (it.hasNext()) {
+//                ((IEventListener) it.next()).onNotify(new EventMessage(0, r1, r2));
+//            }
+//        }
+//    }
+
+    private void dispatchEventMessage(final EventMessage eventMessage) {
+        if (getInstance().mEventListeners.isEmpty())
+            {
+            LogUtils.i(TAG, "no event listeners to send to! status: " + getSdkStatus());
+        } else {
+            if (isMainThread()) {
+                for (IEventListener mEventListener : getInstance().mEventListeners) {
+                    mEventListener.onNotify(eventMessage);
+                }
+            } else {
+                getInstance().mMainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        for (IEventListener mEventListener : getInstance().mEventListeners) {
+                            mEventListener.onNotify(eventMessage);
+                            }
+                        }
+                    }
+                    );
+
+            }
+
         }
     }
 
@@ -251,15 +307,15 @@ public class MessageMgr implements IMessageMgr {
     public void unregister() {
         unregister(true);
     }
-    public void unregister(boolean z10) {
-        LogUtils.i(TAG, "unregister start， clearCacheData：" + z10);
-        if (z10) {
+    public void unregister(boolean clearCacheData) {
+        LogUtils.i(TAG, "unregister start， clearCacheData：" + clearCacheData);
+        if (clearCacheData) {
             mContext = null;
             mModelListeners.clear();
         }
-        mLastAppReceiveSdkStatus = -1;
+        mLastAppReceiveSdkStatus = AppLinkState.APP_LINK_STATE_UNSET;
         nativeUnregister();
-        setSdkStatus(2);
+        setSdkStatus(AppLinkState.APP_LINK_OFFLINE);
         LogUtils.i(TAG, "unregister end");
     }
 
@@ -273,12 +329,26 @@ public class MessageMgr implements IMessageMgr {
         }
         if (!alreadyExists) {
             this.mAppLinkListeners.add(iAppLinkListener);
+        } else {
+            // remove the old listener and add the new one
+            this.mAppLinkListeners.remove(iAppLinkListener);
+            this.mAppLinkListeners.add(iAppLinkListener);
         }
     }
 
     @Override
     public void addEventListener(IEventListener iEventListener) {
-
+        boolean alreadyExists = false;
+        Iterator<IEventListener> it = getInstance().mEventListeners.iterator();
+        for (IEventListener mEvtListener : getInstance().mEventListeners) {
+            if (mEvtListener == iEventListener) {
+                alreadyExists = true;
+                break;
+            }
+        }
+        if (!alreadyExists) {
+            this.mEventListeners.add(iEventListener);
+        }
     }
 
     @Override
@@ -416,11 +486,6 @@ public class MessageMgr implements IMessageMgr {
     public void writeProperty(String str, String str2, String str3, IResultListener<ModelMessage> iResultListener) {
 
     }
-
-    private static void setSdkStatus(int status) {
-        mSdkStatus = status;
-    }
-
 
     private static void getLocalNetIpFromP2p(byte[] bArr, byte[] bArr2) {
         try {

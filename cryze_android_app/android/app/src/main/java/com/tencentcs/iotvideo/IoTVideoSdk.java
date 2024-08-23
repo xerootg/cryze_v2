@@ -14,6 +14,7 @@ import android.util.Log;
 import com.tencentcs.iotvideo.messagemgr.IMessageMgr;
 import com.tencentcs.iotvideo.messagemgr.MessageMgr;
 import com.tencentcs.iotvideo.netconfig.INetConfig;
+import com.tencentcs.iotvideo.netconfig.Language;
 import com.tencentcs.iotvideo.netconfig.NetConfig;
 import com.tencentcs.iotvideo.utils.LogUtils;
 import com.tencentcs.iotvideo.utils.Utils;
@@ -48,7 +49,7 @@ public class IoTVideoSdk {
                 LogUtils.i(IoTVideoSdk.TAG, "Connectivity Change");
                 if (!IoTVideoSdk.isSupportedCurrentAbi()) {
                     LogUtils.e(IoTVideoSdk.TAG, "onReceive don't support abi");
-                } else if (1 != MessageMgr.getSdkStatus()) {
+                } else if (MessageMgr.getSdkStatus() != AppLinkState.APP_LINK_ONLINE) {
                     LogUtils.i(IoTVideoSdk.TAG, "app is not online");
                 } else {
                     ExecutorService newSingleThreadExecutor = Executors.newSingleThreadExecutor();
@@ -94,14 +95,14 @@ public class IoTVideoSdk {
     public static final int LOG_LEVEL_VERBOSE = 6;
     public static final int LOG_LEVEL_WARNING = 3;
     public static final String PREFIX_THIRD_ID = "_@.";
-    private static final int SDK_REGISTER_STATE_IDL = 0;
-    private static final int SDK_REGISTER_STATE_REGISTERED = 2;
-    private static final int SDK_REGISTER_STATE_REGISTERING = 1;
-    private static final int SDK_REGISTER_STATE_UNREGISTERED = 4;
-    private static final int SDK_REGISTER_STATE_UNREGISTERING = 3;
+    public static final int SDK_REGISTER_STATE_IDL = 0;
+    public static final int SDK_REGISTER_STATE_REGISTERED = 2;
+    public static final int SDK_REGISTER_STATE_REGISTERING = 1;
+    public static final int SDK_REGISTER_STATE_UNREGISTERED = 4;
+    public static final int SDK_REGISTER_STATE_UNREGISTERING = 3;
     private static final String TAG = "CLIoTVideoSdk";
     private static final long VALID_REGISTER_TIME_INTERVAL = 1000;
-    private static short lastRegisterAppSysLanguage;
+    private static Language lastRegisterAppSysLanguage;
     private static int lastRegisterDeviceType;
     private static Application mContext;
     private static Lock mReceiverLock;
@@ -114,6 +115,9 @@ public class IoTVideoSdk {
     private static boolean isWaitingUnregister = false;
     private static boolean isInited = false;
 
+    public static int getRegisterState() {
+        return registerState;
+    }
 
     static {
         if (isSupportedCurrentAbi()) {
@@ -178,9 +182,9 @@ public class IoTVideoSdk {
     }
 
     public static void register(long accessId, String accessToken, int deviceType) {
-        register(accessId, accessToken, deviceType, (short) 0);
+        register(accessId, accessToken, deviceType, Language.NONE);
     }
-    public static void register(long accessId, String accessToken, int deviceType, short sysLanguage)
+    public static void register(long accessId, String accessToken, int deviceType, Language sysLanguage)
     {
         LogUtils.e(TAG, "IotVideoSdk Register Started");
         if (!isInited())
@@ -194,7 +198,7 @@ public class IoTVideoSdk {
             lastRegisterAppSysLanguage = sysLanguage;
             lastRegisterTime = System.currentTimeMillis();
             LogUtils.i(TAG, "register registerState:" + registerState);
-            if (registerState != 0 && 4 != registerState)
+            if (registerState != SDK_REGISTER_STATE_IDL && SDK_REGISTER_STATE_UNREGISTERED != registerState) //SDK_REGISTER_STATE_REGISTERED
             {
                 LogUtils.i(TAG, "register,auto unregister");
                 isWaitingUnregister = true;
@@ -202,7 +206,7 @@ public class IoTVideoSdk {
                 return;
             }
             isWaitingUnregister = false;
-            registerState = 1;
+            registerState = SDK_REGISTER_STATE_REGISTERING;
             MessageMgr.getInstance().register(mContext);
             String[] split = "1.0.0".split("\\(")[0].split("\\.");
             int version_code = 1 | (Integer.parseInt(split[1]) << 19) | (Integer.parseInt(split[0]) << 23) | 268435456;
@@ -213,38 +217,38 @@ public class IoTVideoSdk {
             } catch (Exception e2) {
                 LogUtils.e(TAG, "register error:" + e2.getMessage());
             }
-            nativeRegister(accessId, accessToken, IOT_HOST, version_code, (short) deviceType, sysLanguage, p2p_port_type);
-            LogUtils.i(TAG, "register accessId" + accessId + " accessToken: " + accessToken + ", version = 0x" + Integer.toHexString(version_code) + ", p2pUrl = " + IOT_HOST + "; language :" + sysLanguage);
+            nativeRegister(accessId, accessToken, IOT_HOST, version_code, (short) deviceType, (short) sysLanguage.getLanguage(), p2p_port_type);
+            LogUtils.i(TAG, "register accessId" + accessId + " accessToken: " + accessToken + ", version = 0x" + Integer.toHexString(version_code) + ", p2pUrl = " + IOT_HOST + "; language :" + sysLanguage.name());
 
             registerNetBroadcastReceiver();
-            registerState = 2;
+            registerState = SDK_REGISTER_STATE_REGISTERED;
         }
     }
 
 
-    private static void unRegister(boolean z10) {
-        LogUtils.i(TAG, "unregister, isAuto:" + z10);
+    private static void unRegister(boolean autoRegister) {
+        LogUtils.i(TAG, "unregister, isAuto:" + autoRegister);
         if (isSupportedCurrentAbi()) {
             if (!isInited()) {
                 LogUtils.e(TAG, "unregister error:sdk is not init");
                 return;
             }
-            if (!z10) {
+            if (!autoRegister) {
                 lastRegisterTime = 0L;
                 lastRegisterAccessId = -1L;
                 lastRegisterAccessToken = null;
                 lastRegisterDeviceType = 0;
-                lastRegisterAppSysLanguage = (short) 0;
+                lastRegisterAppSysLanguage = Language.NONE;
                 isWaitingUnregister = false;
             }
             registerState = 3;
-            MessageMgr.getInstance().unregister(!z10);
+            MessageMgr.getInstance().unregister(!autoRegister);
             ExecutorService newSingleThreadExecutor = Executors.newSingleThreadExecutor();
             newSingleThreadExecutor.execute(new Runnable() { // from class: com.tencentcs.iotvideo.IoTVideoSdk.1
                 @Override // java.lang.Runnable
                 public void run() {
                     IoTVideoSdk.nativeUnregister();
-                    int unused = IoTVideoSdk.registerState = 4;
+                    int unused = IoTVideoSdk.registerState = SDK_REGISTER_STATE_UNREGISTERED;
                     LogUtils.i(IoTVideoSdk.TAG, "unregister finish, isWaitingUnregister:" + IoTVideoSdk.isWaitingUnregister);
                     if (IoTVideoSdk.isWaitingUnregister) {
                         if (-1 != IoTVideoSdk.lastRegisterAccessId && !TextUtils.isEmpty(IoTVideoSdk.lastRegisterAccessToken)) {
@@ -312,7 +316,7 @@ public class IoTVideoSdk {
     }
     private static native byte[] nativeGetRstpPassword(String str);
     private static native long nativeGetTerminalId();
-    private static native void nativeRegister(long j10, String str, String str2, int i10, short s10, short s11, int i11);
+    private static native void nativeRegister(long accessId, String accessToken, String host, int version_code, short deviceType, short language, int p2pPortType);
     private static native String nativeSha1WithBase256(String str, String str2);
     private static native String nativeSha256WithHex(String str);
     private static native void nativeStartDetectDevNetwork(String str, String str2, int i10, int i11);

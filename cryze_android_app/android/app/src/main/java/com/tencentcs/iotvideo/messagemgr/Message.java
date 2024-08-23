@@ -1,4 +1,7 @@
 package com.tencentcs.iotvideo.messagemgr;
+
+import androidx.annotation.NonNull;
+
 /* loaded from: classes2.dex */
 public class Message {
     public int error;
@@ -9,5 +12,11 @@ public class Message {
         this.type = type;
         this.id = id;
         this.error = error;
+    }
+
+    @NonNull
+    @Override
+    public String toString() {
+        return "type: " + this.type + ", id: " + this.id + ", error: " + this.error;
     }
 }

@@ -1,5 +1,7 @@
 package com.tencentcs.iotvideo.messagemgr;
-/* loaded from: classes2.dex */
+
+import com.tencentcs.iotvideo.AppLinkState;
+
 public interface IAppLinkListener {
-    void onAppLinkStateChanged(int i10);
+    void onAppLinkStateChanged(AppLinkState state);
 }
