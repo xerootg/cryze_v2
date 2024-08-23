@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
 
     private val TAG: String = "MainActivityIot"
 
-    var cryzeApi: String = "http://192.168.1.3:8080" // I really need to find a better way to do this
+    var cryzeApi: String = "http://cryze_api:8080" // I really need to find a better way to do this
 
     val client = OkHttpClient()
     private val context = this // so i can pass it to the CameraViewer class... maybe not the best idea
