@@ -1,6 +1,6 @@
 Hello!
 
-This is a rough RTSP server for WYZE cameras of the GWELL variety
+This is a rough RTSP (and raw h264) server for WYZE cameras of the GWELL variety
 
 ## preface
 THANK YOU to Carson Loyal (carTloyal123) for the libraries to connect and get streams and pedroSG94 for RTSP related android libraries. I used the following repos:
@@ -32,22 +32,23 @@ docker compose up -d
 you can view the android container over adb with something like scrcpy: `scrcpy -s localhost:5555` - that repo is [here](https://github.com/Genymobile/scrcpy)
 
 ## Support
-I am not tech support, I am sorry, but I just do not have time. To debug the android half, you _will_ need to use logcat/a debugger/android studio. logcat is flushed to docker logs, but it is not filtered and Android is notoriously chatty. For some of the things I found myself fixing while developing this, checkout [this guide](TROUBLESHOOTING.md).
+I am not tech support, I am sorry, but I just do not have time. To debug the android half, you _will_ need to use logcat/a debugger/android studio. logcat is flushed to docker logs, but it is not filtered, includes kernel messages, and Android is notoriously chatty. For some of the things I found myself fixing while developing this, checkout [this guide](TROUBLESHOOTING.md).
 
 ## Development
 I am using Android Studio for the android app, and just attaching to my remote docker-hosted `redroid` container (`adb connect [arch box ip address]:5555`). debugging/remote builds work, but container reboots will not persist your `/data` partition, so be sure to rebuild/restart with updated sources. (step 3 above)
 
-## HELP NEEDED
+## HELP NEEDED (backlog?)
 - rewrite `RtspStream` to allow us to pass the raw packets from `AVData` on `IVideoDecoder.receive_frame` or `IVideoDecoder.send_packet` to remove _both_ `MediaCodec`s involved with _each_ camera's stream. This would significantly reduce the resource utilization.
 - move the complete use of the python `wyze_sdk` library into the android app to allow the android app to run independent of the webservice.
-- deal with camera events like disconnects/connects
-- move to the latest version of IoTVideoSDK
+- move to the latest/a newe version of IoTVideoSDK
+- render events on the API server in some sort of view, there's some cool data in the event stream. I made classes to deserialize the events into.
+- have the asp.net core container spin up ffmpeg transcoding for the raw streams back to RTSP or RTMP as a nicety when a stream starts.
 
 ## Camera configurations
 There are three server types that the android container can provide, all three have advantages and disadvantages:
 - RTSP - Just works, but requires good hardware accelleration support, of which is flakey in Redroid.
 - MJPEG - visible in a browser, re-renderable in ffmpeg, but uses absolutely no hardware accelleration and will only accept one connection at a time so its best used for testing.
-- RAW - gives you a raw h264 stream straight out of the IotVideoPlayer library, which requires zero hardware accelleration. This will also only accept one connection at a time, but using ffmpeg, this gives you the best flexability.
+- RAW - gives you a raw h264 stream straight out of the IotVideoPlayer library, which requires zero hardware accelleration. This will also only accept one connection at a time, but using ffmpeg, this gives you the best flexability and the best overall performance.
 
 The CAMERA_IDS variable is a comma seperated list of cameras, id:port:serverType
 
