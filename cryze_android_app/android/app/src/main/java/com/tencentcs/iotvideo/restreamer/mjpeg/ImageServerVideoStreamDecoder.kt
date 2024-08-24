@@ -13,19 +13,16 @@ import com.tencentcs.iotvideo.iotvideoplayer.codec.AVData
 import com.tencentcs.iotvideo.iotvideoplayer.codec.AVHeader
 import com.tencentcs.iotvideo.iotvideoplayer.mediacodec.MediaConstant
 import com.tencentcs.iotvideo.iotvideoplayer.mediacodec.MediaConstant.INPUT_BUFFER_ERROR
+import com.tencentcs.iotvideo.restreamer.ByteStreamServer
 import com.tencentcs.iotvideo.restreamer.interfaces.IRendererCallback
 import com.tencentcs.iotvideo.restreamer.interfaces.IRestreamingVideoDecoder
 import com.tencentcs.iotvideo.utils.LogUtils
 import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.io.OutputStream
-import java.net.ServerSocket
-import java.net.Socket
-import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 
 
-class ImageServerVideoStreamDecoder (private val rawSocketPort : Int, private val onFrameCallback: IRendererCallback, baseContext : Context) :
+class ImageServerVideoStreamDecoder (private val socketHandler: ByteStreamServer, private val onFrameCallback: IRendererCallback, baseContext : Context) :
     IRestreamingVideoDecoder {
         
     private val TAG = ImageServerVideoStreamDecoder::class.simpleName
@@ -37,151 +34,15 @@ class ImageServerVideoStreamDecoder (private val rawSocketPort : Int, private va
     private var codec : MediaCodec? = null
     private var mediaFormat : MediaFormat? = null
 
-    private var serverSocket: ServerSocket? = null
-    private var clientSocket: Socket? = null
-    private var outputStream: OutputStream? = null
-
-    private var socketHandlerThread: Thread? = null
-
-    @Volatile private var running = true
-
-    private enum class State {
-        WAITING_FOR_CONNECTION,
-        CONNECTED,
-        DISCONNECTED
-    }
-
-    @Volatile private var state = State.WAITING_FOR_CONNECTION
-    @Volatile private var previousState = State.WAITING_FOR_CONNECTION
-
     private var converter : ImageConverter = ImageConverter(baseContext)
 
     init {
-        serverSocket = ServerSocket(rawSocketPort)
-        LogUtils.i(TAG, "Server started on port $rawSocketPort")
-
-        socketHandlerThread = Thread {
-            while (!Thread.currentThread().isInterrupted) {
-                connectionHandler()
-                LogUtils.i(TAG, "connectionHandler is restarting")
-            }
-            LogUtils.i(TAG, "connectionHandler exiting")
-        }
-
-        socketHandlerThread?.start()
-
+        // set the MJPEG header
+        socketHandler.setHeader(Header)
         // track FPS for toString
         converter.logFps = true
     }
 
-    val boundary = "--frameboundary--"
-
-    private fun connectionHandler() {
-
-        while (running && !Thread.currentThread().isInterrupted) {
-            var stateChange = false
-            if (previousState != state) {
-                LogUtils.i(
-                    TAG,
-                    "connectionHandler state: ${state.name}"
-                )
-                previousState = state
-                stateChange = true
-            }
-            when (state) {
-                State.WAITING_FOR_CONNECTION -> {
-                    if(stateChange)LogUtils.i(
-                        TAG,
-                        "Waiting for client connection"
-                    )
-                    try {
-                        if (serverSocket == null) {
-                            // take the socket if it is already bound
-                            if (clientSocket?.isClosed == false) {
-                                clientSocket?.close()
-                            }
-                            try {
-                                serverSocket = ServerSocket(rawSocketPort)
-                                serverSocket?.soTimeout = 10_000
-                            } catch (ex: IOException)
-                            {
-                                LogUtils.e(TAG , "connectionHandler: clientSocket: error: ${ex.message} ${ex.stackTrace}")
-                                serverSocket?.close()
-                                serverSocket = null
-                                Thread.yield()
-                            }
-                            serverSocket?.reuseAddress = true //allow us to rebind to the same port after we close the server
-                            if(stateChange)LogUtils.i(
-                                TAG,
-                                "connectionHandler: serverSocket: $serverSocket"
-                            )
-                        }
-                        clientSocket = serverSocket?.accept()
-                        clientSocket?.keepAlive = false
-                        clientSocket?.soTimeout = 10_000
-                        clientSocket?.tcpNoDelay = true
-                        if(stateChange)LogUtils.i(
-                            TAG,
-                            "connectionHandler: socketInfo: $clientSocket"
-                        )
-                        outputStream = clientSocket?.getOutputStream()
-                        outputStream?.write("HTTP/1.1 200 OK\r\n".toByteArray())
-                        val header = "Content-Type: multipart/x-mixed-replace; boundary=$boundary\r\n"
-                        outputStream?.write(header.toByteArray())
-                        outputStream?.write("\r\n".toByteArray())
-                        if(stateChange) LogUtils.i(
-                            TAG,
-                            "connectionHandler: Client connected"
-                        )
-                        state = State.CONNECTED
-                    }
-                    catch (_: SocketTimeoutException)
-                    {
-                        //swallow, this isn't a bug, it's a feature.
-                        //Basically, don't block if we can't connect to the client
-                    }
-                    catch (e: Exception) {
-                        LogUtils.e(
-                            TAG,
-                            "connectionHandler: Error accepting client: ${e.message} ${e.stackTrace}"
-                        )
-                    }
-                }
-
-                State.CONNECTED -> {
-                    if(stateChange)LogUtils.i(
-                        TAG,
-                        "connectionHandler: Client connected"
-                    )
-                    if (clientSocket?.isClosed == true || clientSocket?.isConnected == false || clientSocket?.isOutputShutdown == true) {
-                        LogUtils.i(
-                            TAG,
-                            "connectionHandler: Client disconnected"
-                        )
-                        state = State.DISCONNECTED
-                    }
-                }
-
-                State.DISCONNECTED -> {
-                    if(stateChange)LogUtils.i(
-                        TAG,
-                        "connectionHandler: Client disconnected"
-                    )
-                    try {
-                        clientSocket?.close()
-                    } catch (e: Exception) {
-                        LogUtils.i(
-                            TAG,
-                            "connectionHandler: Error closing connection: ${e.message}"
-                        )
-                    }
-                    state = State.WAITING_FOR_CONNECTION
-                }
-            }
-            Thread.yield()
-        }
-        LogUtils.i(TAG , "connectionHandler stopped")
-    }
 
     private var watchdog : Thread? = Thread {
         while(!Thread.currentThread().isInterrupted)
@@ -193,7 +54,7 @@ class ImageServerVideoStreamDecoder (private val rawSocketPort : Int, private va
             }
             if(frames == previousFrames)
             {
-                onFrameCallback.onRenderWatchdogRequestsRestart()
+                onFrameCallback.onFault()
             } else {
                 previousFrames = frames
             }
@@ -275,33 +136,24 @@ class ImageServerVideoStreamDecoder (private val rawSocketPort : Int, private va
             return MediaConstant.SEND_PACKET_ERROR
         }
 
-        if (state == State.CONNECTED) {
-            try {
-                // flush the image to the surface to encode
-                val bitmap = converter.convert(outputImage)
-                val byteArrayOutputStream = ByteArrayOutputStream()
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream)
-                val byteArray = byteArrayOutputStream.toByteArray()
+        try {
+            // flush the image to the surface to encode
+            val bitmap = converter.convert(outputImage)
+            val byteArrayOutputStream = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream)
+            val byteArray = byteArrayOutputStream.toByteArray()
 
-                // mjpeg "frame"
-                outputStream?.write("$boundary\r\n".toByteArray())
-                outputStream?.write("Content-Type: image/jpeg\r\n\r\n".toByteArray())
-                outputStream?.write(byteArray)
-                outputStream?.write("\r\n".toByteArray())
+            // mjpeg "frame"
+            socketHandler.sendBytes(IntraPictureSeperator)
+            socketHandler.sendBytes(byteArray)
+            socketHandler.sendBytes("\r\n".toByteArray())
 
-                // flush the stream
-                outputStream?.flush()
-            }
-            catch (_ : IOException)
-            {
-                close()
-            }
-            catch (e: Exception) {
-                LogUtils.e(
-                    TAG,
-                    "receive_frame exception:" + e.message
-                )
-            }
+        }
+        catch (e: Exception) {
+            LogUtils.e(
+                TAG,
+                "receive_frame exception:" + e.message
+            )
         }
 
         val rtpTimestamp = bufferInfo!!.presentationTimeUs
@@ -318,14 +170,7 @@ class ImageServerVideoStreamDecoder (private val rawSocketPort : Int, private va
     }
 
     fun close() {
-        running = false
-        try {
-            outputStream?.close()
-            clientSocket?.close()
-            serverSocket?.close()
-        } catch (e: Exception) {
-            LogUtils.i(TAG, "Error closing server: ${e.message}")
-        }
+
         LogUtils.i(TAG, "Server closed")
     }
 
@@ -344,9 +189,6 @@ class ImageServerVideoStreamDecoder (private val rawSocketPort : Int, private va
         watchdog?.join()
         watchdog = null
 
-        socketHandlerThread?.interrupt()
-        socketHandlerThread?.join()
-        socketHandlerThread = null
         LogUtils.i(TAG, "release")
         codec?.stop()
         codec?.release()
@@ -391,7 +233,13 @@ class ImageServerVideoStreamDecoder (private val rawSocketPort : Int, private va
     }
 
     override fun toString(): String {
-        return "ImageServerVideoStreamDecoder{SocketState: ${state.name}, FPS: ${converter.lastFps}}"
+        return "ImageServerVideoStreamDecoder{FPS: ${converter.lastFps} Socket: ${socketHandler}}"
+    }
+
+    companion object {
+        const val MJPEGBoundary = "--frameboundary--"
+        val IntraPictureSeperator = "${Companion.MJPEGBoundary}\r\nContent-Type: image/jpeg\r\n\r\n".toByteArray()
+        val Header =  "HTTP/1.1 200 OK\r\nContent-Type: multipart/x-mixed-replace; boundary=${Companion.MJPEGBoundary}\r\n\r\n".toByteArray()
     }
 
 }

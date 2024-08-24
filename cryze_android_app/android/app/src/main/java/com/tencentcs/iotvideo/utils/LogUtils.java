@@ -1,12 +1,7 @@
 package com.tencentcs.iotvideo.utils;
 
 import android.os.Build;
-import android.os.Looper;
-import android.os.Process;
-import android.text.TextUtils;
 import android.util.Log;
-import com.tencentcs.iotvideo.mars.xlog.Xlog;
-import com.tencentcs.iotvideo.BuildConfig;
 
 public class LogUtils {
     private static final int LEVEL_DEBUG = 1;

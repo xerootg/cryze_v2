@@ -26,18 +26,23 @@ import com.tencentcs.iotvideo.utils.rxjava.IResultListener
 import java.util.concurrent.atomic.AtomicBoolean
 
 // Context is only used by RTSP, seemingly for GL stuff, it does some very fancy stuff with sourcing video.
-class RestreamingResultListener(private val cameraCredential: CameraCredential, private val context: Context): IResultListener<Boolean> {
+class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential, private val context: Context): IResultListener<Boolean> {
 
     private val TAG = "RestreamingResultListener::${cameraCredential.serverType}::${cameraCredential.socketPort}"
-    var streamer: IRestreamingVideoDecoder? = null
+    private var streamer: IRestreamingVideoDecoder? = null
+    private var socketHandler: ByteStreamServer? = null
+    private var sockerServerThread: Thread? = null
+    private var iotVideoPlayer: IoTVideoPlayer? = null
+
     var framesProcessed = 0
 
-    private var _isFaulted = AtomicBoolean(false)
-    var isFaulted: Boolean
-        get() = _isFaulted.get()
+    private var _isDecoderStalled = AtomicBoolean(false)
+    var isDecoderStalled: Boolean
+        get() = _isDecoderStalled.get()
         set(value) {
-            LogUtils.i(TAG, "set isFaulted: $value")
-            _isFaulted.set(value)
+            if(value == _isDecoderStalled.get()) return // only log if we faulted
+            LogUtils.i(TAG, "decoderStalled: $value")
+            _isDecoderStalled.set(value)
         }
 
     private var isSubscribed = false
@@ -49,18 +54,19 @@ class RestreamingResultListener(private val cameraCredential: CameraCredential, 
             try {
                 Thread.sleep(30_000)
                 if (!isSubscribed) {
-                    isFaulted = true
+                    isDecoderStalled = true
                 }
             } catch (e: InterruptedException) {return@Thread}
         }
     }
 
+    private var onErrorCalled = false;
     override fun onError(errorCode: Int, message: String?) {
         val errorType = SubscribeError.fromErrorCode(errorCode)
         val logMessage = "onError: $errorCode, $errorType, $message"
         if(!isSubscribed) {
             LogUtils.e(TAG, logMessage)
-            isFaulted = true
+            onErrorCalled = true
         } else {
             StackTraceUtils.logStackTrace(TAG, "possibly a zombie error: $logMessage")
         }
@@ -75,29 +81,34 @@ class RestreamingResultListener(private val cameraCredential: CameraCredential, 
         IRendererCallback {
         override fun onFrame() {
             framesProcessed++
+            isDecoderStalled = false // we're processing frames, so we're not faulted.
         }
-        override fun onRenderWatchdogRequestsRestart() {
-            isFaulted = true
+        override fun onFault() {
+            isDecoderStalled = true
         }
     }
 
     override fun onSuccess(success: Boolean?) {
         LogUtils.e(TAG, "Subscribe: onSuccess: $success")
-        val iotVideoPlayer = IoTVideoPlayer()
+        iotVideoPlayer = IoTVideoPlayer()
 
-        iotVideoPlayer.setDataResource(PREFIX_THIRD_ID + cameraCredential.deviceId, 1, PlayerUserData(2))
-        iotVideoPlayer.setConnectDevStateListener(LoggingConnectDevStateListener())
-        iotVideoPlayer.setAudioRender(NullAudioRenderer())
+        // callType 1 = monitor
+        iotVideoPlayer?.setDataResource(PREFIX_THIRD_ID + cameraCredential.deviceId, 1, PlayerUserData(2))
+        iotVideoPlayer?.setConnectDevStateListener(LoggingConnectDevStateListener())
+        iotVideoPlayer?.setAudioRender(NullAudioRenderer())
 
-        iotVideoPlayer.setAudioDecoder(NullAudioStreamDecoder())
-        iotVideoPlayer.setVideoRender(NullVideoRenderer())
+        iotVideoPlayer?.setAudioDecoder(NullAudioStreamDecoder())
+        iotVideoPlayer?.setVideoRender(NullVideoRenderer())
 
-        // set the stream decoder
-        streamer = when(cameraCredential.serverType) {
-            ServerType.RAW -> H264StreamingVideoDecoder(
-                cameraCredential.socketPort,
-                rendererCallback
-            )
+        streamer = when(cameraCredential.serverType ?: ServerType.RAW) {
+                ServerType.RAW -> {
+
+                    ensureSocketServerInitialized()
+                    H264StreamingVideoDecoder(
+                    socketHandler!!,
+                    rendererCallback
+                )
+            }
 
             ServerType.RTSP -> SurfaceRtspServerStreamDecoder(
                 cameraCredential.socketPort,
@@ -105,22 +116,19 @@ class RestreamingResultListener(private val cameraCredential: CameraCredential, 
                 context
             )
 
-            ServerType.MJPEG -> ImageServerVideoStreamDecoder(
-                cameraCredential.socketPort,
-                rendererCallback,
-                context
-            )
-
-            else -> ImageServerVideoStreamDecoder(
-                cameraCredential.socketPort,
-                rendererCallback,
-                context
-            )
+            ServerType.MJPEG -> {
+                ensureSocketServerInitialized()
+                ImageServerVideoStreamDecoder(
+                    socketHandler!!,
+                    rendererCallback,
+                    context
+                )
+            }
         }
 
-        iotVideoPlayer.setVideoDecoder(streamer)
+        iotVideoPlayer?.setVideoDecoder(streamer)
 
-        iotVideoPlayer.setErrorListener { errorNumber ->
+        iotVideoPlayer?.setErrorListener { errorNumber ->
             LogUtils.i(
                 TAG,
                 "errorListener onError for iotvideo player: $errorNumber with message: ${getErrorDescription(errorNumber)}"
@@ -128,25 +136,35 @@ class RestreamingResultListener(private val cameraCredential: CameraCredential, 
 
             if(errorNumber == IoTVideoErrors.Term_msg_calling_timeout_disconnect)
             {
-                isFaulted = true
+                isDecoderStalled = true
             }
         }
-        iotVideoPlayer.setStatusListener { statusCode ->
+        iotVideoPlayer?.setStatusListener { statusCode ->
             LogUtils.i(
                 TAG,
                 "IStatusListener onStatus for IotVideoPlayer: ${PlayerStateEnum.valueOf(statusCode)}($statusCode)"
             )
-            LogUtils.i(TAG, "Player connect mode: ${iotVideoPlayer.getConnectMode()}");
+            LogUtils.i(TAG, "Player connect mode: ${iotVideoPlayer?.getConnectMode()}");
             LogUtils.i(TAG, "Lan dev is ${if (isLanDevConnectable()) "" else "not "}connectable, streaming from internet")
         }
 
         LogUtils.i(TAG, "Lan dev is ${if (isLanDevConnectable()) "" else "not "}connectable, streaming from internet")
 
-        iotVideoPlayer.play() // start receiving packets
+        iotVideoPlayer?.play() // start receiving packets
 
-        LogUtils.i(TAG, "Player state: ${iotVideoPlayer.playState}")
+        LogUtils.i(TAG, "HLSPort=${IoTVideoSdk.getHLSHttpPort()}}")
+
+        LogUtils.i(TAG, "Player state: ${iotVideoPlayer?.playState}")
 
         isSubscribed = true
+    }
+
+    private fun ensureSocketServerInitialized(){
+        if(socketHandler == null) { // construct a socket handler if we don't have one
+            socketHandler = ByteStreamServer(cameraCredential.socketPort)
+            sockerServerThread = Thread(socketHandler)
+            sockerServerThread?.start()
+        }
     }
 
     // I've yet to see this be true for any devices, atleast inside of the docker container
@@ -159,11 +177,22 @@ class RestreamingResultListener(private val cameraCredential: CameraCredential, 
     {
         if(streamer?.initialized == true)
         {
-            isFaulted = true
+            isDecoderStalled = true
             StackTraceUtils.logStackTrace(TAG, "release")
         } else {
             StackTraceUtils.logStackTrace(TAG, "skipped release")
         }
+
+        socketHandler?.shutdown()
+        sockerServerThread?.join()
+        sockerServerThread = null
+        socketHandler = null
+        streamer = null
+        iotVideoPlayer?.stop()
+        var maxShutdownMs = 5000L
+        while(iotVideoPlayer?.playState == PlayerStateEnum.STATE_PLAY && maxShutdownMs > 0)  {maxShutdownMs -= 100; Thread.sleep(100)}
+        iotVideoPlayer?.release()
+        iotVideoPlayer = null
     }
 
     protected fun finalize()
@@ -182,7 +211,7 @@ class RestreamingResultListener(private val cameraCredential: CameraCredential, 
     override fun toString(): String {
         val sb = StringBuilder()
         sb.append("${cameraCredential.serverType}Camera{").append("\n\t\t\t")
-        sb.append("isFaulted=").append(isFaulted).append("\n\t\t\t")
+        sb.append("isFaulted=").append(isDecoderStalled).append("\n\t\t\t")
         sb.append("isSubscribed=").append(isSubscribed).append("\n\t\t\t")
         sb.append("framesProcessed=").append(framesProcessed)
         if(streamer != null){

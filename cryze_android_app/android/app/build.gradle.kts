@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.cli.js.internal.main
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -19,6 +21,7 @@ android {
             useSupportLibrary = true
         }
         ndk {
+            //noinspection ChromeOsAbiSupport
             abiFilters += "arm64-v8a"
         }
     }
@@ -48,6 +51,11 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/INDEX.LIST"
+            excludes += "META-INF/*.SF"
+            excludes += "META-INF/*.DSA"
+            excludes += "META-INF/*.RSA"
+            excludes += "META-INF/*.properties"
         }
     }
 }
@@ -68,11 +76,10 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.9.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.2.0")
 
-    // static copies pulled into src
-    // implementation("com.github.pedroSG94.RootEncoder:library:2.4.7")
-    // implementation("com.github.pedroSG94:RTSP-Server:1.3.0")
-    
     implementation("androidx.camera:camera-core:1.3.4")
+
+    // Used to handle sockets for MJPEG and raw h264 streams
+    implementation("io.netty:netty-all:4.1.112.Final")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

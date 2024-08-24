@@ -12,13 +12,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.tencentcs.iotvideo.custom.ServerType
 import com.tencentcs.iotvideo.restreamer.RestreamingVideoPlayer
-import com.tencentcs.iotvideo.restreamer.RestreamingVideoPlayerFactory
 import com.tencentcs.iotvideo.restreamer.interfaces.ICameraStream
 import com.tencentcs.iotvideo.ui.theme.CustomNativeIotVideoTheme
 import com.tencentcs.iotvideo.utils.LogUtils
@@ -39,7 +36,6 @@ class MainApplication : Application() {
 
 class CameraViewModel : ViewModel() {
     private val _cameraList = MutableLiveData<ArrayList<ICameraStream>>()
-    val cameraList: MutableLiveData<ArrayList<ICameraStream>> = _cameraList
 
     init {
         _cameraList.value = ArrayList()
@@ -83,14 +79,10 @@ class MainActivity : ComponentActivity() {
 
     val viewModel: CameraViewModel by viewModels()
 
-    private val TAG: String = "MainActivityIot"
-
     var cryzeApi: String = "http://cryze_api:8080" // I really need to find a better way to do this
 
     val client = OkHttpClient()
     private val context = this // so i can pass it to the CameraViewer class... maybe not the best idea
-
-    private val factories = ArrayList<RestreamingVideoPlayerFactory>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -120,7 +112,8 @@ class MainActivity : ComponentActivity() {
                             color = MaterialTheme.colorScheme.background
                         ) {
                             Column( // a scroll area for the status messages
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .fillMaxSize()
                                     .verticalScroll(rememberScrollState())
                             ) {
                                 Text(text = viewModel.getStatusMessage())
@@ -130,8 +123,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
-
 
         // start getting frames hooked up
         getCameraIdsFromServer()

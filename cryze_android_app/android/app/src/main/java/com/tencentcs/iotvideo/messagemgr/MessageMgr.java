@@ -45,16 +45,11 @@ public class MessageMgr implements IMessageMgr {
 
     // When there's multiple cameras initializing at a time, it becomes a bit of a race condition.
     private static AppLinkState _mSdkStatus = AppLinkState.APP_LINK_OFFLINE;
-    public static final Object statusLockObject = new Object();
     public static AppLinkState getSdkStatus() {
-        synchronized (statusLockObject) {
             return _mSdkStatus;
-        }
     }
     private static void setSdkStatus(AppLinkState status) {
-        synchronized (statusLockObject) {
-            _mSdkStatus = status;
-        }
+        _mSdkStatus = status;
     }
 
     public void register(Application application) {
@@ -167,7 +162,13 @@ public class MessageMgr implements IMessageMgr {
         Locale locale = Locale.getDefault();
         String absolutePath = mContext.getExternalFilesDir(null).getAbsolutePath();
         String pathSeparator = File.separator;
-        return String.format(locale, "%s%s%s%s%d%s", absolutePath, pathSeparator, "p2pSave", pathSeparator, type, ".p2p");
+        String filePath = String.format(locale, "%s%s%s%s%d%s", absolutePath, pathSeparator, "p2pSave", pathSeparator, type, ".p2p");
+        String folder = new File(filePath).getParent();
+        File file = new File(folder);
+        if (!file.exists()) {
+            file.mkdirs();
+        }
+        return filePath;
     }
 
     static Boolean isSubbed = false;
@@ -176,7 +177,8 @@ public class MessageMgr implements IMessageMgr {
     // This gets called from inside the Native Library from best I can tell
     private static void onAppLinkStateChanged(final int status) {
         AppLinkState state = AppLinkState.fromInt(status);
-        LogUtils.d(TAG, "onAppLinkStateChanged "+ status);
+        // way too chatty and the docker logs become full of this. we have our own AppLinkState listener
+        //LogUtils.d(TAG, "onAppLinkStateChanged "+ status);
         switch (state) {
             case APP_LINK_ONLINE:
                 LogUtils.d(TAG, "App link online");
@@ -201,11 +203,13 @@ public class MessageMgr implements IMessageMgr {
                 break;
         }
         setSdkStatus(state);
-        if (mLastAppReceiveSdkStatus == state)
-        {
-            LogUtils.d(TAG, "same status as last notify, don't send app, sdk state: " + getSdkStatus());
-        }
-        else if (getInstance().mAppLinkListeners.isEmpty())
+        // Its way too chatty and the docker logs become full of this.
+//        if (mLastAppReceiveSdkStatus == state)
+//        {
+//            LogUtils.d(TAG, "same status as last notify, don't send app, sdk state: " + getSdkStatus());
+//        }
+        //else
+            if (getInstance().mAppLinkListeners.isEmpty())
         {
             LogUtils.w(TAG, "no app link listeners to send to! status: " + getSdkStatus());
         } else {
@@ -230,25 +234,6 @@ public class MessageMgr implements IMessageMgr {
         }
     }
 
-    /* renamed from: com.tencentcs.iotvideo.messagemgr.MessageMgr$14 */
-    /* loaded from: classes12.dex */
-//    class RunnableC1567814 implements Runnable {
-//        final /* synthetic */ String val$data;
-//        final /* synthetic */ String val$topic;
-//
-//        RunnableC1567814(String str, String str2) {
-//            r1 = str;
-//            r2 = str2;
-//        }
-//
-//        @Override // java.lang.Runnable
-//        public void run() {
-//            Iterator it = MessageMgr.getInstance().mEventListeners.iterator();
-//            while (it.hasNext()) {
-//                ((IEventListener) it.next()).onNotify(new EventMessage(0, r1, r2));
-//            }
-//        }
-//    }
 
     private void dispatchEventMessage(final EventMessage eventMessage) {
         if (getInstance().mEventListeners.isEmpty())

@@ -187,27 +187,27 @@ public class IoTVideoPlayer implements IIoTVideoPlayer {
 
         nativeSetStatusListener(new IStatusListener() {
             @Override
-            public void onStatus(int i10) {
+            public void onStatus(int stat) {
                 Object valueOf;
-                onPlayerStateChange(i10);
-                StringBuilder sb2 = new StringBuilder("nativeSetStatusListener status :");
-                sb2.append(i10);
-                sb2.append("; listener:");
+                onPlayerStateChange(stat);
+                StringBuilder statusMessage = new StringBuilder("nativeSetStatusListener status :");
+                statusMessage.append(stat);
+                statusMessage.append("; listener:");
                 if (mStatusListener == null) {
                     valueOf = "listener is null";
                 } else {
-                    valueOf = Integer.valueOf(mStatusListener.hashCode());
+                    valueOf = mStatusListener.hashCode();
                 }
-                sb2.append(valueOf);
-                LogUtils.i(IoTVideoPlayer.TAG, sb2.toString());
+                statusMessage.append(valueOf);
+                LogUtils.i(IoTVideoPlayer.TAG, statusMessage.toString());
                 if (mStatusListener == null) {
                     return;
                 }
-                mMainHandler.post(new Runnable() { // from class: com.tencentcs.iotvideo.iotvideoplayer.IoTVideoPlayer.2.1
-                    @Override // java.lang.Runnable
+                mMainHandler.post(new Runnable() {
+                    @Override
                     public void run() {
                         if (mStatusListener != null) {
-                            mStatusListener.onStatus(i10);
+                            mStatusListener.onStatus(stat);
                         }
                     }
                 });
@@ -825,6 +825,10 @@ public class IoTVideoPlayer implements IIoTVideoPlayer {
         loopGetTransmissionRate(isConnectedDevice());
     }
 
+    // https://github.com/GWTimes/IoTVideo-PC/blob/master/%E5%A4%9A%E5%AA%92%E4%BD%93.pdf
+    // CONN_TYPE_VIDEO_CALL = 0
+    // CONN_TYPE_MONITOR = 1
+    // CONN_TYPE_PLAY_REC_FILE = 2
     @Override
     public void setDataResource(String deviceId, int callType, PlayerUserData playerUserData) {
         LogUtils.i(TAG, "setDataResource nativeObject:0x" + Long.toHexString(this.nativeObject));

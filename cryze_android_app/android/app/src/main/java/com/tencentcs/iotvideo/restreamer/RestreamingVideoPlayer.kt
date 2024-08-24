@@ -3,6 +3,7 @@ package com.tencentcs.iotvideo.restreamer
 import com.tencentcs.iotvideo.AppLinkState
 import com.tencentcs.iotvideo.IoTVideoSdk
 import com.tencentcs.iotvideo.IoTVideoSdk.DEV_TYPE_THIRD_ID
+import com.tencentcs.iotvideo.IoTVideoSdk.LOG_LEVEL_DEBUG
 import com.tencentcs.iotvideo.IoTVideoSdk.SDK_REGISTER_STATE_REGISTERED
 import com.tencentcs.iotvideo.MainActivity
 import com.tencentcs.iotvideo.StackTraceUtils
@@ -91,25 +92,22 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
 
     private var pauseWatchdog = false
     private var watchdog = Thread {
-        while (!Thread.currentThread().isInterrupted) {
-            if (pauseWatchdog) {
-                try {
+        try{
+            while (!Thread.currentThread().isInterrupted) {
+                if (pauseWatchdog) {
                     Thread.sleep(1000)
-                } catch (_: InterruptedException) {}
-                continue
-            }
-            if (camera.isFaulted) {
-                LogUtils.e(TAG, "Camera is faulted, Attempting to recover")
-                _camera?.release()
-                _camera = null // release the camera
-                start() // The SDK should handle the correct events
-            }
-            try {
+                    continue
+                }
+                if (camera.isDecoderStalled) {
+                    LogUtils.e(TAG, "Camera is faulted, Attempting to recover")
+                    _restreamerLifecycleHandler?.release()
+                    _restreamerLifecycleHandler = null // release the camera
+                    start() // The SDK should handle the correct events
+                }
+
                 Thread.sleep(1000)
-            } catch (_: InterruptedException) {
-                LogUtils.i(TAG, "Thread interrupted")
             }
-        }
+        } catch (_: InterruptedException) {}
     }
 
     @Synchronized
@@ -123,6 +121,10 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
         if(!IoTVideoSdk.isInited())
         {
             IoTVideoSdk.init(baseContext.application, userInfo)
+            val logPath = baseContext.getExternalFilesDir(null)?.absolutePath
+            IoTVideoSdk.setLogPath(logPath)
+            IoTVideoSdk.setDebugMode(LOG_LEVEL_DEBUG)
+            LogUtils.i(TAG, "WYZE SDK initialized, log path: $logPath")
         }
 
         // All devices must register with the WYZE SDK before they can start streaming but only one needs to log in
@@ -184,14 +186,15 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
                 LogUtils.w(TAG, "Token expired, unregistering and getting a new one")
 
                 // queue up a refresh. This will cause the credentials to re-register w/ the backend and then start the camera
-
                 unregisterSdk()
                 cameraCredential = null
+
+                // we are dead, really. remove the app link listener and start over.
+                IoTVideoSdk.getMessageMgr().removeAppLinkListener(this)
+
                 Thread {
                     start()
                 }.start()
-
-                //removeAppLinkListener(this) // theoretically we want to do this to prevent this same instance from being called again
                 return
             }
         }
@@ -206,23 +209,23 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
         messageMgr.removeModelListeners()
     }
 
-    private var _camera: RestreamingResultListener? = null
+    private var _restreamerLifecycleHandler: RestreamingLifecycleHandler? = null
 
-    var camera: RestreamingResultListener
+    var camera: RestreamingLifecycleHandler
         get() = synchronized(this){
-            _camera ?: run {
+            _restreamerLifecycleHandler ?: run {
                 if (cameraCredential == null) {
                     LogUtils.i(TAG, "Camera construction attempted without camera credentials: $cameraId")
                     refreshCameraCredentials()
                 }
-                _camera = RestreamingResultListener(cameraCredential!!, baseContext)
-                _camera!!
+                _restreamerLifecycleHandler = RestreamingLifecycleHandler(cameraCredential!!, baseContext)
+                _restreamerLifecycleHandler!!
             }
         }
         // only one camera can be set at a time
         set(value) = synchronized(this){
             if(cameraCredential == null) {
-                _camera = value
+                _restreamerLifecycleHandler = value
             }
         }
 
@@ -255,8 +258,8 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
         watchdog.interrupt()
         synchronized(camera)
         {
-            _camera?.release()
-            _camera = null
+            _restreamerLifecycleHandler?.release()
+            _restreamerLifecycleHandler = null
         }
         unregisterSdk()
     }

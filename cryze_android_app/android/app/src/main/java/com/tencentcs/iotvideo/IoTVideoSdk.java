@@ -11,6 +11,7 @@ import android.os.Build;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.tencent.mars.xlog.Xlog;
 import com.tencentcs.iotvideo.messagemgr.IMessageMgr;
 import com.tencentcs.iotvideo.messagemgr.MessageMgr;
 import com.tencentcs.iotvideo.netconfig.INetConfig;
@@ -305,6 +306,10 @@ public class IoTVideoSdk {
         return nIsLanDevConnectable(deviceId);
 
     }
+
+    static public native int setDebugMode(int val);
+    static public native int setLogPath(String str);
+
     private static native int nIsLanDevConnectable(String str);
     private static native int nativeCheckAndSetDevicePwd(String str, String str2, String str3);
     private static native String[] nativeGetAnonymousSecureKey(String str, long j10);
