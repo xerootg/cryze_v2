@@ -2,8 +2,14 @@ package com.tencentcs.iotvideo.iotvideoplayer.codec
 
 import com.tencentcs.iotvideo.utils.LogUtils
 
-class AVHeader {
-    var map = HashMap<String?, Any?>()
+class AVHeader() {
+
+    // Lets us make a copy of this object.
+    constructor(aVHeader: AVHeader?) : this() {
+        this.copy(aVHeader)
+    }
+
+    private var map = HashMap<String?, Any?>()
 
     private fun getInteger(str: String): Int? {
         return if(containsKey(str)) map[str] as Int else null
@@ -15,6 +21,7 @@ class AVHeader {
 
     fun copy(aVHeader: AVHeader?) {
         if (aVHeader == null) {
+            LogUtils.w(TAG, "copy AVHeader failed: aVHeader is null")
             return
         }
         for ((key, value) in aVHeader.map) {
@@ -28,6 +35,10 @@ class AVHeader {
                 }
             }
         }
+    }
+
+    fun isEmpty(): Boolean {
+        return map.isEmpty()
     }
 
     override fun equals(other: Any?): Boolean {
@@ -54,7 +65,6 @@ class AVHeader {
     }
 
     private fun setVideoRenderInfo(videoRenderInfo: VideoRenderInfo) {
-        LogUtils.d(TAG, "setVideoRenderInfo, videoRenderInfo = $videoRenderInfo")
         map[KEY_VIDEO_RENDER_INFO] = videoRenderInfo
     }
 

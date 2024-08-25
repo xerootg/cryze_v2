@@ -1,7 +1,5 @@
 package com.tencentcs.iotvideo.iotvideoplayer.soundtouch;
 
-import com.tencentcs.iotvideo.utils.LogUtils;
-
 // This has JNI surface, it must stick around, even if its just  stub. probably.
 public class SoundTouchTools {
 //    static {

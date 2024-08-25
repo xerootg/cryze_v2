@@ -1,8 +1,8 @@
 package com.tencentcs.iotvideo
 
+import com.tencentcs.iotvideo.utils.LogUtils
 import java.io.PrintWriter
 import java.io.StringWriter
-import com.tencentcs.iotvideo.utils.LogUtils
 
 object StackTraceUtils {
 

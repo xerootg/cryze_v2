@@ -67,7 +67,7 @@ data class ProReadonlyModelMessage(
                 path = message.path,
                 error = message.error,
                 id = message.id,
-                type = MessageType.fromInt(message.type),
+                type = message.type,
                 data = data
             )
         }

@@ -1,5 +1,7 @@
 package com.tencentcs.iotvideo.iotvideoplayer;
-/* loaded from: classes2.dex */
+
 public interface IPreparedListener {
+    // JNI throws if this interface is missing
+    @SuppressWarnings("unused")
     void onPrepared();
 }

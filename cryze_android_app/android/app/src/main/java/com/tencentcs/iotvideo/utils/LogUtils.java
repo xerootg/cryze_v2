@@ -97,7 +97,7 @@ public class LogUtils {
     }
 
     public static void w(String tag, String message) {
-        w(tag, message);
+        w(tag, message,(Object[]) null);
     }
 
     public static void d(String tag, String message, Object... stringArgs) {

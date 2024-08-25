@@ -7,11 +7,14 @@ import com.google.gson.JsonParser
 open class ModelMessage(
     var device: String,
     id: Long,
-    type: Int,
+    type: MessageType,
     error: Int,
     var path: String,
     var data: String
 ) : Message(type, id, error) {
+
+    constructor(device: String, id: Long, type: Int, error: Int, path: String, data: String)
+            : this(device, id, MessageType.fromInt(type), error, path, data)
 
     fun getPrettyMessage(): String {
         val gson: Gson = GsonBuilder().setPrettyPrinting().create()
@@ -22,7 +25,7 @@ open class ModelMessage(
         jsonElement.addProperty("path", this.path)
         jsonElement.addProperty("error", this.error)
         jsonElement.addProperty("id", this.id)
-        jsonElement.addProperty("type", MessageType.fromInt(this.type).name)
+        jsonElement.addProperty("type", this.type.name)
 
         return gson.toJson(jsonElement)
     }

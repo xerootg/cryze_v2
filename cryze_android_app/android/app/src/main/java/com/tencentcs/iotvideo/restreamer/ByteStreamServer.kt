@@ -1,7 +1,15 @@
 package com.tencentcs.iotvideo.restreamer
 
+import com.tencentcs.iotvideo.utils.LogUtils
 import io.netty.bootstrap.ServerBootstrap
-import io.netty.channel.*
+import io.netty.channel.Channel
+import io.netty.channel.ChannelFuture
+import io.netty.channel.ChannelFutureListener
+import io.netty.channel.ChannelHandlerContext
+import io.netty.channel.ChannelInitializer
+import io.netty.channel.ChannelOption
+import io.netty.channel.ChannelPromise
+import io.netty.channel.SimpleChannelInboundHandler
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioServerSocketChannel
@@ -51,10 +59,11 @@ class ByteStreamServer(private val port: Int) : Runnable {
         }
     }
 
+    // a prefix sent to all new connections
     fun setHeader(header: ByteArray) {
         this.header = header
-        for (channel in channels) {
-            channel.writeAndFlush(header).addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE)
+        for (channel in channels) { // send to all already connected clients
+            channel.writeAndFlush(header)
             packetsFlushed.incrementAndGet()
         }
     }
@@ -73,22 +82,30 @@ class ByteStreamServer(private val port: Int) : Runnable {
 class ByteStreamHandler(
     private val channels: CopyOnWriteArrayList<Channel>,
     private val headerProvider: () -> ByteArray?,
-    private val packetsFlushed: AtomicLong
+    private val packetsFlushed: AtomicLong //
 ) : SimpleChannelInboundHandler<ByteArray>() {
 
     override fun channelActive(ctx: ChannelHandlerContext) {
         channels.add(ctx.channel())
+        // send the header "prefix" to the new client if there is one
         headerProvider()?.let {
-            ctx.writeAndFlush(it).addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE)
+            ctx.writeAndFlush(it)
             packetsFlushed.incrementAndGet()
         }
     }
 
+    // called when a client disconnects for any reason
     override fun channelInactive(ctx: ChannelHandlerContext) {
         channels.remove(ctx.channel())
     }
 
+    // no-op, this is a yeeting style server
     override fun channelRead0(ctx: ChannelHandlerContext, msg: ByteArray) {
-        // Handle incoming data if needed
+    }
+
+    @Deprecated("Reasons.")
+    override fun exceptionCaught(ctx: ChannelHandlerContext?, cause: Throwable?) {
+        channels.remove(ctx?.channel())
+        LogUtils.e("ByteStreamServer", "pruned channel for exception: ${cause?.message}")
     }
 }

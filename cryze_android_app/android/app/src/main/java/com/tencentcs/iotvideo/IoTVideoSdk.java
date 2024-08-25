@@ -7,11 +7,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
-
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.tencent.mars.xlog.Xlog;
 import com.tencentcs.iotvideo.messagemgr.IMessageMgr;
 import com.tencentcs.iotvideo.messagemgr.MessageMgr;
 import com.tencentcs.iotvideo.netconfig.INetConfig;

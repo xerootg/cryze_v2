@@ -77,7 +77,8 @@ RUN mkdir -p $GRADLE_USER_HOME && \
 #============================================
 # NOTE: this is only copying the app subfolder. anything in the project root unrelated to gradle bootstrapping needs to be copied too
 COPY ./android /app 
-
+ARG CRYZE_BACKEND_URL "http://cryze_api:8080"
+ENV CRYZE_BACKEND_URL=$CRYZE_BACKEND_URL
 # produce a debug apk
 RUN chmod +x gradlew && \
     ./gradlew --no-daemon assembleDebug && \

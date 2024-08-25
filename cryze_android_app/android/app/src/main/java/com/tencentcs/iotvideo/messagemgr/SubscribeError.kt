@@ -133,17 +133,18 @@ enum class SubscribeError(val errorCode: Int) {
     IOTC_ER_FAIL_CREATE_MUTEX(-4),
     IOTC_ER_ALREADY_INITIALIZED(-3),
     IOTC_ER_FAIL_RESOLVE_HOSTNAME(-2),
-    IOTC_ER_SERVER_NOT_RESPONSE(-1);
+    IOTC_ER_SERVER_NOT_RESPONSE(-1),
+    UNKNOWN_ERR(Int.MAX_VALUE);
 
     companion object {
-        fun fromErrorCode(errorCode: Int): SubscribeError? {
+        fun fromErrorCode(errorCode: Int): SubscribeError {
             val negativeErrorCode = if (errorCode < 0) errorCode else -errorCode
-            for (error in values()) {
+            for (error in entries) {
                 if (error.errorCode == negativeErrorCode) {
                     return error
                 }
             }
-            return null
+            return UNKNOWN_ERR
         }
     }
 }

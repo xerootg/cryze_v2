@@ -14,10 +14,12 @@ class NetConfig private constructor() : INetConfig, IEventListener {
 
     private external fun nativeSubscribeDevice(str: String, str2: String): Int
 
-    override fun onNotify(eventMessage: EventMessage) {
-        if (DEVICE_ONLINE_TOPIC == eventMessage.topic) {
-            val netConfigResult = Gson().fromJson(eventMessage.data, NetConfigResult::class.java)
-            LogUtils.i(TAG, "onNotify:$netConfigResult")
+    override fun onNotify(eventMessage: EventMessage?) {
+        if (eventMessage != null) {
+            if (DEVICE_ONLINE_TOPIC == eventMessage.topic) {
+                val netConfigResult = Gson().fromJson(eventMessage.data, NetConfigResult::class.java)
+                LogUtils.i(TAG, "onNotify:$netConfigResult")
+            }
         }
     }
 

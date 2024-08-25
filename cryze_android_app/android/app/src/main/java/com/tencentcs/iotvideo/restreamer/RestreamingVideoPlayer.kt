@@ -10,6 +10,7 @@ import com.tencentcs.iotvideo.MainActivity
 import com.tencentcs.iotvideo.StackTraceUtils
 import com.tencentcs.iotvideo.custom.CameraCredential
 import com.tencentcs.iotvideo.iotvideoplayer.Mode
+import com.tencentcs.iotvideo.iotvideoplayer.PlayerState
 import com.tencentcs.iotvideo.messagemgr.IAppLinkListener
 import com.tencentcs.iotvideo.messagemgr.MessageMgr
 import com.tencentcs.iotvideo.messageparsers.DefaultModelMessageListener
@@ -20,6 +21,7 @@ import okhttp3.Callback
 import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
+import kotlin.time.Duration.Companion.minutes
 
 // There's some _mad_ hints in AIoTBaseRender about what the different values in AVData are
 class RestreamingVideoPlayer(override val cameraId: String, private val baseContext: MainActivity) :
@@ -89,8 +91,10 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
             }
         }
         LogUtils.i(TAG, "Got camera credentials for camera id: $cameraId")
+        timeLastTokenRefresh = System.currentTimeMillis();
     }
 
+    private var timeLastTokenRefresh = 0L
     private var pauseWatchdog = false
     private var watchdog = Thread {
         try{
@@ -99,11 +103,44 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
                     Thread.sleep(1000)
                     continue
                 }
+                // if the camera is stalled, try to recover
                 if (camera.isDecoderStalled) {
-                    LogUtils.e(TAG, "Camera is faulted, Attempting to recover")
+                    LogUtils.e(TAG, "Watchdog: Camera is stalled, Giving it 30 seconds to recover")
+                    // wait for 30 seconds for the camera to recover on it's own
+                    var maxWaitToUnblockMs = 30*1000
+                    while (maxWaitToUnblockMs > 0) {
+                        Thread.sleep(1000)
+                        if (!camera.isDecoderStalled) {
+                            LogUtils.i(TAG, "Watchdog: Camera recovered, resuming normal watchdog")
+                            break
+                        }
+                        maxWaitToUnblockMs -= 1000
+                    }
+
+                    LogUtils.e(TAG, "Watchddog: Camera is faulted, Attempting to recover")
                     _restreamerLifecycleHandler?.release()
                     _restreamerLifecycleHandler = null // release the camera
+
+                    // this blocks for a long time, till device subscription occurs. that feels bad.
                     start() // The SDK should handle the correct events
+                    LogUtils.i(TAG, "Watchdog: Camera restarted")
+                } else {
+                    // every 30 minutes, refresh the token and update the camera
+                    if(System.currentTimeMillis() - timeLastTokenRefresh > 5.minutes.inWholeMilliseconds) {
+                        LogUtils.i(TAG, "Watchdog: Refreshing camera credentials")
+                        cameraCredential = null
+                        refreshCameraCredentials()
+                        if(cameraCredential != null &&
+                            cameraCredential?.isUsed != true &&
+                            cameraCredential?.accessToken != null &&
+                            cameraCredential?.accessId != null) {
+                            camera.updateToken(cameraCredential!!.accessId, cameraCredential!!.accessToken)
+                            cameraCredential?.isUsed = true
+                            LogUtils.i(TAG, "Watchdog: Camera credentials updated")
+                        } else {
+                            LogUtils.e(TAG, "Watchdog: Camera credential is null or used")
+                        }
+                    }
                 }
 
                 Thread.sleep(1000)
@@ -163,8 +200,13 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
         addSubscribeDevice()
     }
 
+    private var lastAppLinkState : AppLinkState = AppLinkState.APP_LINK_STATE_UNSET
     private val appLinkHandler = object : IAppLinkListener {
         override fun onAppLinkStateChanged(state: AppLinkState?) {
+            if(state == lastAppLinkState)
+                return
+            lastAppLinkState = state?: AppLinkState.APP_LINK_STATE_UNSET
+
             LogUtils.i(TAG, "appLinkListener state = $state")
             if (state == AppLinkState.APP_LINK_ONLINE) {
                 LogUtils.i(
@@ -192,6 +234,9 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
 
                 // we are dead, really. remove the app link listener and start over.
                 IoTVideoSdk.getMessageMgr().removeAppLinkListener(this)
+
+                // reset the state so the listener lifecycle is not broken
+                lastAppLinkState = AppLinkState.APP_LINK_STATE_UNSET
 
                 Thread {
                     start()
@@ -232,6 +277,9 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
 
     private fun addSubscribeDevice()
     {
+        if(_restreamerLifecycleHandler?.playbackState == PlayerState.STATE_PLAY)
+            return // the stream is running apparently? don't subscribe
+
         if(cameraCredential == null || cameraCredential?.isUsed == true)
         {
             cameraCredential= null

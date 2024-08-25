@@ -7,13 +7,10 @@ import com.tencentcs.iotvideo.IoTVideoSdk.PREFIX_THIRD_ID
 import com.tencentcs.iotvideo.StackTraceUtils
 import com.tencentcs.iotvideo.custom.CameraCredential
 import com.tencentcs.iotvideo.custom.ServerType
+import com.tencentcs.iotvideo.iotvideoplayer.IErrorListener
 import com.tencentcs.iotvideo.iotvideoplayer.IStatusListener
 import com.tencentcs.iotvideo.iotvideoplayer.IoTVideoPlayer
 import com.tencentcs.iotvideo.iotvideoplayer.PlayerState
-import com.tencentcs.iotvideo.iotvideoplayer.codec.NullAudioStreamDecoder
-import com.tencentcs.iotvideo.iotvideoplayer.player.PlayerUserData
-import com.tencentcs.iotvideo.iotvideoplayer.render.NullAudioRenderer
-import com.tencentcs.iotvideo.iotvideoplayer.render.NullVideoRenderer
 import com.tencentcs.iotvideo.messagemgr.SubscribeError
 import com.tencentcs.iotvideo.restreamer.h264.H264StreamingVideoDecoder
 import com.tencentcs.iotvideo.restreamer.interfaces.IRendererCallback
@@ -31,8 +28,11 @@ class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential
     private val TAG = "RestreamingResultListener::${cameraCredential.serverType}::${cameraCredential.socketPort}"
     private var streamer: IRestreamingVideoDecoder? = null
     private var socketHandler: ByteStreamServer? = null
-    private var sockerServerThread: Thread? = null
+    private var socketServerThread: Thread? = null
     private var iotVideoPlayer: IoTVideoPlayer? = null
+    var playbackState: PlayerState = PlayerState.STATE_UNKNOWN
+        get() = iotVideoPlayer?.playState ?: PlayerState.STATE_UNKNOWN
+
 
     var framesProcessed = 0
 
@@ -60,7 +60,13 @@ class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential
         }
     }
 
-    private var onErrorCalled = false;
+    // a hook for the outer to bump the token with
+    fun updateToken(j10: Long, str: String)
+    {
+        iotVideoPlayer?.updateAccessIdAndToken(j10, str);
+    }
+
+    private var onErrorCalled = false
     override fun onError(errorCode: Int, message: String?) {
         val errorType = SubscribeError.fromErrorCode(errorCode)
         val logMessage = "onError: $errorCode, $errorType, $message"
@@ -77,7 +83,7 @@ class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential
         LogUtils.i(TAG, "onStart")
     }
 
-    val rendererCallback = object:
+    private val rendererCallback = object:
         IRendererCallback {
         override fun onFrame() {
             framesProcessed++
@@ -90,15 +96,6 @@ class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential
 
     override fun onSuccess(success: Boolean?) {
         LogUtils.e(TAG, "Subscribe: onSuccess: $success")
-        iotVideoPlayer = IoTVideoPlayer()
-
-        // callType 1 = monitor
-        iotVideoPlayer?.setDataResource(PREFIX_THIRD_ID + cameraCredential.deviceId, 1, PlayerUserData(2))
-        iotVideoPlayer?.setConnectDevStateListener(LoggingConnectDevStateListener())
-        iotVideoPlayer?.setAudioRender(NullAudioRenderer())
-
-        iotVideoPlayer?.setAudioDecoder(NullAudioStreamDecoder())
-        iotVideoPlayer?.setVideoRender(NullVideoRenderer())
 
         streamer = when(cameraCredential.serverType ?: ServerType.RAW) {
                 ServerType.RAW -> {
@@ -126,38 +123,44 @@ class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential
             }
         }
 
-        iotVideoPlayer?.setVideoDecoder(streamer)
-
-        iotVideoPlayer?.setErrorListener { errorNumber ->
-            LogUtils.i(
-                TAG,
-                "errorListener onError for iotvideo player: $errorNumber with message: ${getErrorDescription(errorNumber)}"
-            )
-
-            if(errorNumber == IoTVideoErrors.Term_msg_calling_timeout_disconnect)
-            {
-                isDecoderStalled = true
+        val errorListener = object: IErrorListener {
+            override fun onError(errorType: SubscribeError) {
+                // This happens sometimes after the stream has started. I don't really have a good way
+                // to signal up to the watchdog that something interesting is going on, so flag as stalled
+                // and let the onFrame callback unset the flag.
+                if(errorType == SubscribeError.AV_ER_CLIENT_NO_AVLOGIN || errorType == SubscribeError.AV_ER_SERV_NO_RESPONSE) {
+                    LogUtils.e(TAG, "errorListener onError for iotvideo player: $errorType")
+                    isDecoderStalled = true
+                } else {
+                    LogUtils.w(
+                        TAG,
+                        "errorListener onError for iotvideo player: $errorType with message: ${getErrorDescription(errorType.ordinal)}"
+                    )
+                }
             }
         }
-        iotVideoPlayer?.setStatusListener(object : IStatusListener {
-            override fun onStatus(code: Int) {
-                LogUtils.i(
-                    TAG,
-                    "IStatusListener onStatus for IotVideoPlayer: ${PlayerState.fromInt(code)}($code)"
-                )
-                LogUtils.i(TAG, "Player connect mode: ${iotVideoPlayer?.connectMode}");
-                LogUtils.i(
-                    TAG,
-                    "Lan dev is ${if (isLanDevConnectable()) "" else "not "}connectable, streaming from internet"
-                )
+
+        val stateListener = object : IStatusListener {
+            override fun onStatus(state: PlayerState) {
+                // this is highly redundant in setting up or tearing down the player
+                // and flat out wrong when playing has stopped or not started. The preparing
+                // state also has been flakey, as sometimes by the time play happens, its flipped
+                // so the only reliable state to log this in is when it's actually playing.
+                if(state == PlayerState.STATE_PLAY) {
+                    LogUtils.i(TAG, "Player connect mode: ${iotVideoPlayer?.connectMode}")
+                }
             }
-        })
+        }
+
+        iotVideoPlayer = IoTVideoPlayer(
+            cameraCredential.deviceId,
+            streamer!!,
+            stateListener,
+            errorListener)
 
         LogUtils.i(TAG, "Lan dev is ${if (isLanDevConnectable()) "" else "not "}connectable, streaming from internet")
 
         iotVideoPlayer?.play() // start receiving packets
-
-        LogUtils.i(TAG, "HLSPort=${IoTVideoSdk.getHLSHttpPort()}}")
 
         LogUtils.i(TAG, "Player state: ${iotVideoPlayer?.playState}")
 
@@ -167,12 +170,12 @@ class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential
     private fun ensureSocketServerInitialized(){
         if(socketHandler == null) { // construct a socket handler if we don't have one
             socketHandler = ByteStreamServer(cameraCredential.socketPort)
-            sockerServerThread = Thread(socketHandler)
-            sockerServerThread?.start()
+            socketServerThread = Thread(socketHandler)
+            socketServerThread?.start()
         }
     }
 
-    // I've yet to see this be true for any devices, atleast inside of the docker container
+    // I've yet to see this be true for any devices, at least inside of the docker container
     private fun isLanDevConnectable() : Boolean
     {
         return IoTVideoSdk.lanDevConnectable(PREFIX_THIRD_ID + cameraCredential.deviceId) == 1
@@ -189,8 +192,8 @@ class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential
         }
 
         socketHandler?.shutdown()
-        sockerServerThread?.join()
-        sockerServerThread = null
+        socketServerThread?.join()
+        socketServerThread = null
         socketHandler = null
         streamer = null
         iotVideoPlayer?.stop()
@@ -219,6 +222,10 @@ class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential
         sb.append("isFaulted=").append(isDecoderStalled).append("\n\t\t\t")
         sb.append("isSubscribed=").append(isSubscribed).append("\n\t\t\t")
         sb.append("framesProcessed=").append(framesProcessed)
+        if(iotVideoPlayer!= null) {
+            sb.append("\n\t\t\t")
+            .append("fromCamera: ${(iotVideoPlayer?.avBytesPerSec ?: 0) / 1024}kb/s")
+        }
         if(streamer != null){
             sb.append("\n\t\t\t")
             .append("streamer=")

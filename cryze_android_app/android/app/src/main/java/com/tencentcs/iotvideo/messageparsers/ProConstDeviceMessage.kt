@@ -58,7 +58,7 @@ class ProConstDeviceMessage(
     path: String,
     data: String,
     val proConstData: ProConstData
-): ModelMessage(device, id, type.ordinal, error, path, data) {
+): ModelMessage(device, id, type, error, path, data) {
     override fun toString(): String {
         return "ProConstDeviceMessage(device='$device', path='$path', error=$error, id=$id, type='$type', data='$proConstData')"
     }
@@ -74,7 +74,7 @@ class ProConstDeviceMessage(
                 path = message.path,
                 error = message.error,
                 id = message.id,
-                type = MessageType.fromInt(message.type),
+                type = message.type,
                 data = message.data,
                 proConstData = data
             )

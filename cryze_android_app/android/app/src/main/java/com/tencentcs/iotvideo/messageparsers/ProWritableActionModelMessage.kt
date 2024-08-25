@@ -2,6 +2,7 @@ package com.tencentcs.iotvideo.messageparsers
 
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import com.tencentcs.iotvideo.messagemgr.MessageType
 import com.tencentcs.iotvideo.messagemgr.ModelMessage
 
 data class ActionData(
@@ -29,7 +30,7 @@ data class ActionData(
 class ProWriteActionModelMessage(
     device: String,
     id: Long,
-    type: Int,
+    type: MessageType,
     error: Int,
     path: String,
     data: String,

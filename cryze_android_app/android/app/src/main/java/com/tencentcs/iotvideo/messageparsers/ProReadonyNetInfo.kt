@@ -1,6 +1,7 @@
 package com.tencentcs.iotvideo.messageparsers
 
 import com.google.gson.Gson
+import com.tencentcs.iotvideo.messagemgr.MessageType
 import com.tencentcs.iotvideo.messagemgr.ModelMessage
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -33,7 +34,7 @@ data class ProReadonlyNetInfo(
 class ProReadonlyNetInfoModelMessage(
     device: String,
     id: Long,
-    type: Int,
+    type: MessageType,
     error: Int,
     path: String,
     data: String,

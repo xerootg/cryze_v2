@@ -18,7 +18,7 @@ class DefaultModelMessageListener(private val cameraId: String) : IModelListener
         var logMessage = modelMessage.getPrettyMessage()
 
         try {
-            when (MessageType.fromInt(modelMessage.type)) {
+            when (modelMessage.type) {
                 MessageType.MSG_TYPE_PRO_CONST -> {
                     // ProConst is the only type we have a class for right now
                     when (modelMessage.path) {

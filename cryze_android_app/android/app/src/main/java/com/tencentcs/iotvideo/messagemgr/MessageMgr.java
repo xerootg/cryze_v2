@@ -6,11 +6,13 @@ import android.app.Application;
 import android.os.Handler;
 import android.os.Looper;
 
-import com.tencentcs.iotvideo.IoTVideoSdk;
 import com.tencentcs.iotvideo.AppLinkState;
-import com.tencentcs.iotvideo.utils.LogUtils;
+import com.tencentcs.iotvideo.IoTVideoSdk;
 import com.tencentcs.iotvideo.utils.FileIOUtils;
+import com.tencentcs.iotvideo.utils.LogUtils;
 import com.tencentcs.iotvideo.utils.rxjava.IResultListener;
+
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -75,25 +77,28 @@ public class MessageMgr implements IMessageMgr {
 
     private native void nativeUnregister();
 
+    @SuppressWarnings("unused")
     private static void onModelMessage(String deviceId, long id, int type, int error, String path, String data) {
         //LogUtils.i(TAG, "onModelMessage deviceId:" + deviceId + ", id:" + id + ", type:" + type + ", error:" + error + ", path:" + path + ", data:" + data);
         getInstance().dispatchModelMessage(new ModelMessage(deviceId, id, type, error, path, data));
     }
 
+    @SuppressWarnings("unused")
     private static void onEventMessage(final String topic, final String data) {
         LogUtils.i(TAG, "onEventMessage topic:" + topic + ", data:" + data);
-        getInstance().dispatchEventMessage(new EventMessage(MessageType.MSG_TYPE_EVENT.ordinal(), topic, data));
+        getInstance().dispatchEventMessage(new EventMessage(MessageType.MSG_TYPE_EVENT, topic, data));
     }
 
+    @SuppressWarnings("unused")
     private static void onDataMessage(String deviceId, long id, int type, int error, byte[] data) {
         LogUtils.i(TAG, "onDataMessage deviceId = " + deviceId + ", id " + id + ", type:" + type + ", error:" + error + "; data:" + Arrays.toString(data));
     }
 
+    @SuppressWarnings("unused")
     private static void onSubscribeDevice(final int messageId, final int error) {
-        // get the error code value if possible
-        // eg 20022
+        // todo: get the error code value if possible
         LogUtils.i(TAG, "onSubscribeDevice ==========start==========");
-        if (getInstance().mSubscribeDeviceMap != null && getInstance().mSubscribeDeviceMap.size() > 0)
+        if (getInstance().mSubscribeDeviceMap != null && !getInstance().mSubscribeDeviceMap.isEmpty())
         {
             IResultListener<Boolean> currentResListener = getInstance().mSubscribeDeviceMap.get(messageId);
             if (currentResListener == null)
@@ -116,6 +121,7 @@ public class MessageMgr implements IMessageMgr {
                         currentResListener.onError(error, "subscribe device error" + error);
                     }
                 });
+                LogUtils.i(TAG, "onSubscribeDevice ==========end==========");
                 return;
             }
             if (isMainThread())
@@ -173,49 +179,43 @@ public class MessageMgr implements IMessageMgr {
 
     static Boolean isSubbed = false;
 
-
-    // This gets called from inside the Native Library from best I can tell
+    // This gets called by JNI when the app link state changes
+    @SuppressWarnings("unused")
     private static void onAppLinkStateChanged(final int status) {
         AppLinkState state = AppLinkState.fromInt(status);
-        // way too chatty and the docker logs become full of this. we have our own AppLinkState listener
-        //LogUtils.d(TAG, "onAppLinkStateChanged "+ status);
+
+        // this switch statement will only log when the state changes
         switch (state) {
             case APP_LINK_ONLINE:
-                LogUtils.d(TAG, "App link online");
+                if(getSdkStatus() == state) LogUtils.d(TAG, "App link online");
                 break;
             case APP_LINK_OFFLINE:
-                LogUtils.d(TAG, "App link offline");
+                if(getSdkStatus() == state) LogUtils.d(TAG, "App link offline");
                 break;
             case APP_LINK_ACCESS_TOKEN_ERROR:
-                LogUtils.d(TAG, "App link access token error");
+                if(getSdkStatus() == state) LogUtils.d(TAG, "App link access token error");
                 break;
             case APP_LINK_TID_INIT_ERROR:
-                LogUtils.d(TAG, "App link TID init error");
+                if(getSdkStatus() == state) LogUtils.d(TAG, "App link TID init error");
                 break;
             case APP_LINK_INVALID_TID:
-                LogUtils.d(TAG, "App link invalid TID");
+                if(getSdkStatus() == state) LogUtils.d(TAG, "App link invalid TID");
                 break;
             case APP_LINK_KICK_OFF:
-                LogUtils.d(TAG, "App link kick off");
+                if(getSdkStatus() == state) LogUtils.d(TAG, "App link kick off");
                 break;
             case APP_LINK_DEV_DISABLE:
-                LogUtils.d(TAG, "App link dev disable");
+                if(getSdkStatus() == state) LogUtils.d(TAG, "App link dev disable");
                 break;
         }
         setSdkStatus(state);
-        // Its way too chatty and the docker logs become full of this.
-//        if (mLastAppReceiveSdkStatus == state)
-//        {
-//            LogUtils.d(TAG, "same status as last notify, don't send app, sdk state: " + getSdkStatus());
-//        }
-        //else
-            if (getInstance().mAppLinkListeners.isEmpty())
+
+        if (getInstance().mAppLinkListeners.isEmpty())
         {
             LogUtils.w(TAG, "no app link listeners to send to! status: " + getSdkStatus());
         } else {
             if (isMainThread())
             {
-                LogUtils.i(TAG, "onAppLinkStateChanged notify app status at uiThread");
                 for (IAppLinkListener mAppLinkListener : getInstance().mAppLinkListeners) {
                     mAppLinkListener.onAppLinkStateChanged(state);
                 }
@@ -224,7 +224,6 @@ public class MessageMgr implements IMessageMgr {
                     @Override
                     public void run() {
                         for (IAppLinkListener mAppLinkListener : MessageMgr.getInstance().mAppLinkListeners) {
-                            LogUtils.i(TAG, "onAppLinkStateChanged notify app status at subThread");
                             mAppLinkListener.onAppLinkStateChanged(state);
                         }
                     }
@@ -453,12 +452,7 @@ public class MessageMgr implements IMessageMgr {
 
     }
 
-    @Override
-    public void setPassThroughListener(IPassThroughListener iPassThroughListener) {
-
-    }
-
-    public void subscribeDevice(ConcurrentHashMap<Integer, IResultListener<Boolean>> concurrentHashMap) {
+    public void subscribeDevice(@Nullable ConcurrentHashMap<Integer, IResultListener<Boolean>> concurrentHashMap) {
         this.mSubscribeDeviceMap = concurrentHashMap;
     }
 

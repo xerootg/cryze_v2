@@ -12,7 +12,7 @@ import com.tencentcs.iotvideo.iotvideoplayer.codec.IVideoDecoder
 // This is HEAVILY a cut down version to just what we need for our use case
 interface IIoTVideoPlayer {
     @Deprecated("")
-    fun changeDefinition(b10: Byte)
+    fun changeDefinition(b10: Byte){} // we don't need this for restreaming
 
     val avBytesPerSec: Int
 
@@ -25,22 +25,6 @@ interface IIoTVideoPlayer {
     fun play()
 
     fun release()
-
-    fun setAudioDecoder(iAudioDecoder: IAudioDecoder?)
-
-    fun setAudioRender(iAudioRender: IAudioRender?)
-
-    fun setDataResource(deviceId: String?,
-                        callType: Int,
-                        playerUserData: PlayerUserData?)
-
-    fun setErrorListener(iErrorListener: IErrorListener?)
-
-    fun setStatusListener(iStatusListener: IStatusListener?)
-
-    fun setVideoDecoder(iVideoDecoder: IVideoDecoder?)
-
-    fun setVideoRender(iVideoRender: IVideoRender?)
 
     fun stop()
 

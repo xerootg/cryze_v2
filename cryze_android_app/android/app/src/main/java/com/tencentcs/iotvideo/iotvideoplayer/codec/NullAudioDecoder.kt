@@ -1,6 +1,6 @@
 package com.tencentcs.iotvideo.iotvideoplayer.codec
 
-class NullAudioStreamDecoder : IAudioDecoder {
+class NullAudioDecoder : IAudioDecoder {
     override fun init(aVHeader: AVHeader?) {
     }
 

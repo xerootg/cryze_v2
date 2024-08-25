@@ -21,22 +21,37 @@ enum class Protocol(val value: Int) {
 
     companion object {
         fun fromValue(value: Int): Protocol {
-            return values().find { it.value == value } ?: UNKNOWN
+            return entries.find { it.value == value } ?: UNKNOWN
         }
     }
 }
 
-class ConnectMode {
-    @JvmField
-    var mMode: Int = 0
-    @JvmField
-    var mProtocol: Int = -1
+class ConnectMode(connectionMode: IntArray?) {
+    // Leave this open (not private) for future use
+    var mMode = Mode.UNKNOWN
+        private set
+
+    // Leave this open (not private) for future use
+    var mProtocol = Protocol.UNKNOWN
+        private set
+
+    init {
+        if (connectionMode != null && connectionMode.size == 3) {
+            val i = connectionMode[0]
+            if (i == 0) {
+                this.mMode = Mode.fromValue(connectionMode[1])
+                this.mProtocol = Protocol.fromValue(connectionMode[2])
+            } else {
+                this.mMode = Mode.fromValue(i)
+            }
+        }
+    }
 
     override fun toString(): String {
         val sb2 = StringBuilder("ConnectMode{mMode=")
-        sb2.append(Mode.fromValue(this.mMode))
+        sb2.append(this.mMode)
         sb2.append(", mProtocol=")
-        sb2.append(Protocol.fromValue(this.mProtocol))
+        sb2.append(this.mProtocol)
         sb2.append('}')
         return sb2.toString()
     }
