@@ -4,7 +4,8 @@ import com.tencentcs.iotvideo.iotvideoplayer.IVideoRender
 import com.tencentcs.iotvideo.iotvideoplayer.codec.AVData
 import com.tencentcs.iotvideo.iotvideoplayer.codec.AVHeader
 
-class NullVideoRenderer : IVideoRender {
+class NullVideoRenderer :
+    IVideoRender {
     override fun onFrameUpdate(aVData: AVData?) {
     }
 

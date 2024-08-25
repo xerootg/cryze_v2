@@ -21,6 +21,6 @@ class NullAudioRenderer : IAudioRender {
     override fun onRelease() {
     }
 
-    override fun setPlayerVolume(f10: Float) {
+    override fun setPlayerVolume(volumeLevel: Float) {
     }
 }

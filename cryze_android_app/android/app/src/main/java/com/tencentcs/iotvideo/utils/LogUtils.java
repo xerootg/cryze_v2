@@ -3,6 +3,7 @@ package com.tencentcs.iotvideo.utils;
 import android.os.Build;
 import android.util.Log;
 
+// There's JNI glue that I haven't quite fully RE'd out yet.
 public class LogUtils {
     private static final int LEVEL_DEBUG = 1;
     private static final int LEVEL_ERROR = 4;
@@ -62,15 +63,15 @@ public class LogUtils {
     }
 
     public static void d(String tag, String message) {
-        d(tag, message, null);
+        d(tag, message, (Object[]) null);
     }
 
     public static void e(String tag, String message) {
-        e(tag, message, null);
+        e(tag, message, (Object[]) null);
     }
 
     public static void f(String tag, String message) {
-        f(tag, message, null);
+        f(tag, message, (Object[]) null);
     }
 
     public static void flush(boolean z10) {
@@ -87,16 +88,16 @@ public class LogUtils {
     }
 
     public static void i(String tag, String message) {
-        i(tag, message, null);
+        i(tag, message, (Object[]) null);
     }
 
 
     public static void v(String tag, String message) {
-        v(tag, message, null);
+        v(tag, message, (Object[]) null);
     }
 
     public static void w(String tag, String message) {
-        w(tag, message, null);
+        w(tag, message);
     }
 
     public static void d(String tag, String message, Object... stringArgs) {

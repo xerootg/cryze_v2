@@ -1,5 +1,6 @@
 package com.tencentcs.iotvideo.iotvideoplayer;
-/* loaded from: classes2.dex */
+
+//TODO: use the correct Enum, I think we have it
 public interface IErrorListener {
-    void onError(int i10);
+    void onError(int errorCode);
 }

@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import com.tencentcs.iotvideo.BuildConfig.CRYZE_BACKEND_URL
 import com.tencentcs.iotvideo.restreamer.RestreamingVideoPlayer
 import com.tencentcs.iotvideo.restreamer.interfaces.ICameraStream
 import com.tencentcs.iotvideo.ui.theme.CustomNativeIotVideoTheme
@@ -78,8 +79,6 @@ class CameraViewModel : ViewModel() {
 class MainActivity : ComponentActivity() {
 
     val viewModel: CameraViewModel by viewModels()
-
-    var cryzeApi: String = "http://cryze_api:8080" // I really need to find a better way to do this
 
     val client = OkHttpClient()
     private val context = this // so i can pass it to the CameraViewer class... maybe not the best idea
@@ -148,7 +147,7 @@ class MainActivity : ComponentActivity() {
 
     private fun getCameraIdsFromServer(): Unit
     {
-        val requestUrl = "$cryzeApi/getCameraIds"
+        val requestUrl = "$CRYZE_BACKEND_URL/getCameraIds"
         val request = Request.Builder()
             .url(requestUrl)
             .build()

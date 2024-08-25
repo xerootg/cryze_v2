@@ -1,11 +1,5 @@
 package com.tencentcs.iotvideo.iotvideoplayer.codec;
-/* loaded from: classes2.dex */
+
+// required by JNI
 public interface IVideoEncoder {
-    int init(AVHeader aVHeader);
-
-    int receive_packet(AVData aVData);
-
-    void release();
-
-    int send_frame(AVData aVData);
 }

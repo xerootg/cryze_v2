@@ -157,7 +157,7 @@ public class IoTVideoSdk {
     }
 
     public static INetConfig getNetConfig() {
-        return NetConfig.getInstance();
+        return NetConfig.Companion.getInstance();
     }
 
     private static void registerNetBroadcastReceiver() {

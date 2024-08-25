@@ -1,11 +1,13 @@
 package com.tencentcs.iotvideo.iotvideoplayer.codec;
 
+import androidx.annotation.NonNull;
+
 import java.util.ArrayList;
 import java.util.List;
-/* loaded from: classes2.dex */
+
 public class VideoRenderInfo {
     private static final String TAG = "VideoRenderInfo";
-    private final List<CameraRenderRegion> renderRegionList = new ArrayList();
+    private final List<CameraRenderRegion> renderRegionList = new ArrayList<>();
 
     public void addRenderRegion(CameraRenderRegion cameraRenderRegion) {
         if (!this.renderRegionList.contains(cameraRenderRegion)) {
@@ -62,13 +64,17 @@ public class VideoRenderInfo {
         return null;
     }
 
-    public CameraRenderRegion getRenderRegionByIndex(int i10) {
+    // Used by JNI
+    @SuppressWarnings("unused")
+    public CameraRenderRegion getRenderRegionByIndex(int i10)
+    {
         if (i10 >= 0 && i10 < this.renderRegionList.size()) {
             return this.renderRegionList.get(i10);
         }
         return null;
     }
 
+    @NonNull
     public String toString() {
         return "VideoRenderInfo{renderRegionList=" + this.renderRegionList + '}';
     }

@@ -24,6 +24,12 @@ android {
             //noinspection ChromeOsAbiSupport
             abiFilters += "arm64-v8a"
         }
+
+        val backendUrl = System.getenv("CRYZE_BACKEND_URL") ?: "http://cryze_api:8080"
+        buildConfigField("String", "CRYZE_BACKEND_URL", "\"$backendUrl\"")
+    }
+    buildFeatures{
+        buildConfig = true
     }
 
     buildTypes {

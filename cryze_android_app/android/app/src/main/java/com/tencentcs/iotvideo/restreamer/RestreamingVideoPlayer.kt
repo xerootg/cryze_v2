@@ -1,6 +1,7 @@
 package com.tencentcs.iotvideo.restreamer
 
 import com.tencentcs.iotvideo.AppLinkState
+import com.tencentcs.iotvideo.BuildConfig.CRYZE_BACKEND_URL
 import com.tencentcs.iotvideo.IoTVideoSdk
 import com.tencentcs.iotvideo.IoTVideoSdk.DEV_TYPE_THIRD_ID
 import com.tencentcs.iotvideo.IoTVideoSdk.LOG_LEVEL_DEBUG
@@ -45,7 +46,7 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
         LogUtils.i(TAG, "Getting camera credentials for camera id: $cameraId")
 
         // get the camera credentials from the server
-        val requestUrl = "${baseContext.cryzeApi}/getToken?cameraId=$cameraId"
+        val requestUrl = "$CRYZE_BACKEND_URL/getToken?cameraId=$cameraId"
         val request = Request.Builder()
             .url(requestUrl)
             .build()
@@ -239,8 +240,6 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
 
         LogUtils.i(TAG, "Adding subscribe device")
         cameraCredential?.isUsed = true // consume it
-        IoTVideoSdk.getNetConfig()
-            .registerDeviceOnlineCallback(null) // the default callback is fine, we are just logging for now.
         IoTVideoSdk.getNetConfig()
             .subscribeDevice(cameraCredential?.accessToken, cameraCredential?.deviceId, camera)
 

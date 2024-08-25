@@ -1,5 +1,6 @@
 package com.tencentcs.iotvideo.iotvideoplayer;
-/* loaded from: classes2.dex */
+
+// TODO: replace int with the correct Enum type
 public interface IConnectDevStateListener {
-    void onStatus(int i10);
+    void onStatus(int statusCode);
 }

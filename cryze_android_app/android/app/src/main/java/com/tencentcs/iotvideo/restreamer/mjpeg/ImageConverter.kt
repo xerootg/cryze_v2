@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.tencentcs.iotvideo.restreamer.mjpeg
 
 import android.content.Context
@@ -60,7 +62,7 @@ class ImageConverter(private val context: Context) {
 
     fun convert(img: Image, rotation: Int = 0): Bitmap {
         val frame = nv21ToBitmap(yuv420toNV21(img), img.width, img.height, rotation)
-        if(logFps == true) onFrame() // track frames per second
+        if(logFps) onFrame() // track frames per second
         return frame
     }
 

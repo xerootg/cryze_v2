@@ -7,9 +7,9 @@ import com.tencentcs.iotvideo.IoTVideoSdk.PREFIX_THIRD_ID
 import com.tencentcs.iotvideo.StackTraceUtils
 import com.tencentcs.iotvideo.custom.CameraCredential
 import com.tencentcs.iotvideo.custom.ServerType
+import com.tencentcs.iotvideo.iotvideoplayer.IStatusListener
 import com.tencentcs.iotvideo.iotvideoplayer.IoTVideoPlayer
-import com.tencentcs.iotvideo.iotvideoplayer.LoggingConnectDevStateListener
-import com.tencentcs.iotvideo.iotvideoplayer.PlayerStateEnum
+import com.tencentcs.iotvideo.iotvideoplayer.PlayerState
 import com.tencentcs.iotvideo.iotvideoplayer.codec.NullAudioStreamDecoder
 import com.tencentcs.iotvideo.iotvideoplayer.player.PlayerUserData
 import com.tencentcs.iotvideo.iotvideoplayer.render.NullAudioRenderer
@@ -67,8 +67,8 @@ class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential
         if(!isSubscribed) {
             LogUtils.e(TAG, logMessage)
             onErrorCalled = true
-        } else {
-            StackTraceUtils.logStackTrace(TAG, "possibly a zombie error: $logMessage")
+        } else if(isDecoderStalled) {
+            StackTraceUtils.logStackTrace(TAG, "Actually a problem: $logMessage")
         }
     }
 
@@ -139,14 +139,19 @@ class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential
                 isDecoderStalled = true
             }
         }
-        iotVideoPlayer?.setStatusListener { statusCode ->
-            LogUtils.i(
-                TAG,
-                "IStatusListener onStatus for IotVideoPlayer: ${PlayerStateEnum.valueOf(statusCode)}($statusCode)"
-            )
-            LogUtils.i(TAG, "Player connect mode: ${iotVideoPlayer?.getConnectMode()}");
-            LogUtils.i(TAG, "Lan dev is ${if (isLanDevConnectable()) "" else "not "}connectable, streaming from internet")
-        }
+        iotVideoPlayer?.setStatusListener(object : IStatusListener {
+            override fun onStatus(code: Int) {
+                LogUtils.i(
+                    TAG,
+                    "IStatusListener onStatus for IotVideoPlayer: ${PlayerState.fromInt(code)}($code)"
+                )
+                LogUtils.i(TAG, "Player connect mode: ${iotVideoPlayer?.connectMode}");
+                LogUtils.i(
+                    TAG,
+                    "Lan dev is ${if (isLanDevConnectable()) "" else "not "}connectable, streaming from internet"
+                )
+            }
+        })
 
         LogUtils.i(TAG, "Lan dev is ${if (isLanDevConnectable()) "" else "not "}connectable, streaming from internet")
 
@@ -190,7 +195,7 @@ class RestreamingLifecycleHandler(private val cameraCredential: CameraCredential
         streamer = null
         iotVideoPlayer?.stop()
         var maxShutdownMs = 5000L
-        while(iotVideoPlayer?.playState == PlayerStateEnum.STATE_PLAY && maxShutdownMs > 0)  {maxShutdownMs -= 100; Thread.sleep(100)}
+        while(iotVideoPlayer?.playState == PlayerState.STATE_PLAY && maxShutdownMs > 0)  {maxShutdownMs -= 100; Thread.sleep(100)}
         iotVideoPlayer?.release()
         iotVideoPlayer = null
     }

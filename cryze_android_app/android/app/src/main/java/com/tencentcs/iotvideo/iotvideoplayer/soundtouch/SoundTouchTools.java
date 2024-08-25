@@ -2,12 +2,12 @@ package com.tencentcs.iotvideo.iotvideoplayer.soundtouch;
 
 import com.tencentcs.iotvideo.utils.LogUtils;
 
-/* loaded from: classes2.dex */
+// This has JNI surface, it must stick around, even if its just  stub. probably.
 public class SoundTouchTools {
-    static {
-        System.loadLibrary("iotsoundtouch");
-        LogUtils.i("CLSoundTouchIOT", "Loaded sound touch!");
-    }
+//    static {
+//        System.loadLibrary("iotsoundtouch");
+//        LogUtils.i("CLSoundTouchIOT", "Loaded sound touch!");
+//    }
 
     public native void clear();
 
