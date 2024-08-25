@@ -1,6 +1,6 @@
 Hello!
 
-This is a rough RTSP (and raw h264) server for WYZE cameras of the GWELL variety
+This is a RTSP (and raw h264) server for WYZE cameras of the GWELL variety
 
 ## preface
 THANK YOU to Carson Loyal (carTloyal123) for the libraries to connect and get streams and pedroSG94 for RTSP related android libraries. I used the following repos:
@@ -47,8 +47,8 @@ I am using Android Studio for the android app, and just attaching to my remote d
 ## Camera configurations
 There are three server types that the android container can provide, all three have advantages and disadvantages:
 - RTSP - Just works, but requires good hardware accelleration support, of which is flakey in Redroid.
-- MJPEG - visible in a browser, re-renderable in ffmpeg, but uses absolutely no hardware accelleration and will only accept one connection at a time so its best used for testing.
-- RAW - gives you a raw h264 stream straight out of the IotVideoPlayer library, which requires zero hardware accelleration. This will also only accept one connection at a time, but using ffmpeg, this gives you the best flexability and the best overall performance.
+- MJPEG - visible in a browser, re-renderable in ffmpeg, but uses absolutely no hardware accelleration. I get extremely low frame rates, like somewhere in the area of 4-5fps.
+- RAW - gives you a raw h264 stream straight out of the IotVideoPlayer library, which requires zero hardware accelleration. Using this with ffmpeg gives you the best flexability and the best overall performance.
 
 The CAMERA_IDS variable is a comma seperated list of cameras, id:port:serverType
 
@@ -61,7 +61,7 @@ You can get your camera IDs a couple ways, the easiest way if you run docker-wyz
 
 # RAW server type use
 `ffmpeg -i tcp://<ip-of-android-container>:8001 -f flv -listen 1 rtmp://0.0.0.0:1234` - Makes a rtmp stream avalible at rtmp://<your IP>:1234
-`ffmpeg:tcp://cryze_android_app:8001?video=0#video=h264` - web2rtc url, see full example below as I use in frigate
+`ffmpeg:tcp://cryze_android_app:8001?video=0#video=h264#hardware#async` - web2rtc url, see full example below as I use in frigate
 
 My personal docker-compose.yml is combined with a frigate and wyze-bridge container to consolidate everything
 
@@ -149,7 +149,8 @@ I am using frigate with a config like this:
 ```yaml
 go2rtc:
   streams:
-    doorbell: ffmpeg:tcp://cryze_android_app:8001?video=0#video=h264
+    doorbell: ffmpeg:tcp://cryze_android_app:8001?video=0#video=copy#async
+#alternately, use #video=h264#hardware#async to reencode the stream.
 
 cameras:
   doorbell:
