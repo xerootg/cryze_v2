@@ -126,7 +126,7 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
                     LogUtils.i(TAG, "Watchdog: Camera restarted")
                 } else {
                     // every 30 minutes, refresh the token and update the camera
-                    if(System.currentTimeMillis() - timeLastTokenRefresh > 5.minutes.inWholeMilliseconds) {
+                    if(System.currentTimeMillis() - timeLastTokenRefresh > 30.minutes.inWholeMilliseconds) {
                         LogUtils.i(TAG, "Watchdog: Refreshing camera credentials")
                         cameraCredential = null
                         refreshCameraCredentials()
