@@ -187,25 +187,25 @@ public class MessageMgr implements IMessageMgr {
         // this switch statement will only log when the state changes
         switch (state) {
             case APP_LINK_ONLINE:
-                if(getSdkStatus() == state) LogUtils.d(TAG, "App link online");
+                if(getSdkStatus() != state) LogUtils.d(TAG, "App link online");
                 break;
             case APP_LINK_OFFLINE:
-                if(getSdkStatus() == state) LogUtils.d(TAG, "App link offline");
+                if(getSdkStatus() != state) LogUtils.d(TAG, "App link offline");
                 break;
             case APP_LINK_ACCESS_TOKEN_ERROR:
-                if(getSdkStatus() == state) LogUtils.d(TAG, "App link access token error");
+                if(getSdkStatus() != state) LogUtils.d(TAG, "App link access token error");
                 break;
             case APP_LINK_TID_INIT_ERROR:
-                if(getSdkStatus() == state) LogUtils.d(TAG, "App link TID init error");
+                if(getSdkStatus() != state) LogUtils.d(TAG, "App link TID init error");
                 break;
             case APP_LINK_INVALID_TID:
-                if(getSdkStatus() == state) LogUtils.d(TAG, "App link invalid TID");
+                if(getSdkStatus() != state) LogUtils.d(TAG, "App link invalid TID");
                 break;
             case APP_LINK_KICK_OFF:
-                if(getSdkStatus() == state) LogUtils.d(TAG, "App link kick off");
+                if(getSdkStatus() != state) LogUtils.d(TAG, "App link kick off");
                 break;
             case APP_LINK_DEV_DISABLE:
-                if(getSdkStatus() == state) LogUtils.d(TAG, "App link dev disable");
+                if(getSdkStatus() != state) LogUtils.d(TAG, "App link dev disable");
                 break;
         }
         setSdkStatus(state);

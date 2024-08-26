@@ -198,6 +198,7 @@ class RestreamingVideoPlayer(override val cameraId: String, private val baseCont
 
         // Always start the device registration, the listener will handle future events. its entirely likely we missed the first online event
         addSubscribeDevice()
+        watchdog.start() // start the watchdog thread
     }
 
     private var lastAppLinkState : AppLinkState = AppLinkState.APP_LINK_STATE_UNSET
