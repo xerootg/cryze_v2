@@ -9,7 +9,7 @@ int main() {
 
     // Check if our custom descriptor exists on /init
     if (stat(stdout_descriptor, &st) == 0) {
-        execl("/system/bin/logcat", "logcat", "-f", stdout_descriptor, (char *)NULL);
+        execl("/system/bin/logcat", "logcat", "-f", stdout_descriptor, "-e", "com.tencentcs.iotvideo", (char *)NULL);
     } else {
         printf("no docker log descriptor found at %s\n", stdout_descriptor);
         return 0;
