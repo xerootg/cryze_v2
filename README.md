@@ -2,6 +2,8 @@ Hello!
 
 This is a RTSP (and raw h264) server for WYZE cameras of the GWELL variety
 
+# NOTE: MediaMTX backend and full audio support should ship in a couple days.
+
 ## preface
 THANK YOU to Carson Loyal (carTloyal123) for the libraries to connect and get streams and pedroSG94 for RTSP related android libraries. I used the following repos:
 - [cryze-android](https://github.com/carTloyal123/cryze-android) - the library for connecting to the cameras
