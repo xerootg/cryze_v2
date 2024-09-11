@@ -8,110 +8,73 @@ import java.io.IOException
 object FileIOUtils {
     private const val TAG = "FileIOUtils"
 
-    @JvmStatic
-    fun writeFileFromBytesByStream(str: String, data: ByteArray?): Boolean {
-        try {
-            return writeFileFromBytesByStream(getFileByPath(str), data, false)
-        } catch (e: IOException) {
-            LogUtils.e(TAG, "Unable to writeFileFromBytesByStream: $str")
-            return false
-        }
-    }
-
-    @Throws(IOException::class)
-    fun writeFileFromBytesByStream(file: File?, data: ByteArray?, append: Boolean): Boolean {
-        var fileOutputStream: FileOutputStream? = null
-
-        // make sure the directory exists
-        val parentFile = file!!.parentFile
-        if (parentFile != null) {
-            if (!parentFile.exists()) {
-                if (!parentFile.mkdirs()) {
-                            LogUtils.e(TAG, "Unable to create directory: " + parentFile.absolutePath)
-                            return false
-                        }
-            }
-        }
-
-        try {
-            fileOutputStream = FileOutputStream(file, append)
-            fileOutputStream.write(data)
-        } catch (err: IOException) {
-            LogUtils.e(TAG, "Unable to writeFileFromBytesByStream: " + file.name)
-            return false
-        } finally {
-            // Close the FileOutputStream in a finally block to ensure it's always closed
-            if (fileOutputStream != null) {
-                try {
-                    fileOutputStream.close()
-                } catch (e: IOException) {
-                    e.printStackTrace()
-                }
-            }
-        }
-        return true
-    }
 
     @JvmStatic
     fun readFile2BytesByStream(str: String): ByteArray {
-        LogUtils.i(TAG, "readFile2BytesByStream file: $str")
-        try {
-            return readFile2BytesByStream(getFileByPath(str))
-        } catch (e: IOException) {
-            LogUtils.e(
-                TAG,
-                "readFile2BytesByStream error reading: " + str + ", error: " + e.localizedMessage
-            )
-            return ByteArray(0)
-        }
+        return readFile2BytesByStream(File(str))
     }
 
-    private fun getFileByPath(str: String): File? {
-        if (isSpace(str)) {
-            return null
-        }
-        return File(str)
-    }
-
-    private fun isSpace(str: String?): Boolean {
-        if (str == null) {
-            return true
-        }
-        val length = str.length
-        for (i10 in 0 until length) {
-            if (!Character.isWhitespace(str[i10])) {
-                return false
-            }
-        }
-        return true
+    @JvmStatic
+    fun writeFileFromBytesByStream(str: String, data: ByteArray?): Boolean {
+        return writeFileFromBytesByStream(File(str), data, false)
     }
 
     @Throws(IOException::class)
-    fun readFile2BytesByStream(file: File?): ByteArray {
-        var fileInputStream: FileInputStream? = null
+    fun writeFileFromBytesByStream(file: File, data: ByteArray?, append: Boolean): Boolean {
+        if (data == null) {
+            LogUtils.e(TAG, "Data is null")
+            return false
+        }
 
-        try {
-            fileInputStream = FileInputStream(file)
-            val fileBytes = ByteArray(file!!.length().toInt())
-
-            // Read file content into byte array
-            val bytesRead = fileInputStream.read(fileBytes)
-
-            // Check if the entire file is read
-            if (bytesRead < file.length()) {
-                throw IOException("Could not read the entire file: " + file.name)
+        val parentFile = file.parentFile
+        if (parentFile != null && !parentFile.exists()) {
+            if (!parentFile.mkdirs()) {
+                LogUtils.e(TAG, "Unable to create directory: ${parentFile.absolutePath}")
+                return false
             }
+        }
 
-            return fileBytes
-        } finally {
-            // Close the FileInputStream in a finally block to ensure it's always closed
-            if (fileInputStream != null) {
-                try {
-                    fileInputStream.close()
-                } catch (e: IOException) {
-                    e.printStackTrace()
+        return try {
+            FileOutputStream(file, append).use { fileOutputStream ->
+                fileOutputStream.write(data)
+            }
+            LogUtils.i(TAG, "Successfully wrote to file: ${file.absolutePath}")
+            true
+        } catch (e: IOException) {
+            LogUtils.e(
+                TAG,
+                "Unable to writeFileFromBytesByStream: ${file.name}, error: ${e.localizedMessage}"
+            )
+            false
+        }
+    }
+
+    @Throws(IOException::class)
+    fun readFile2BytesByStream(file: File): ByteArray {
+
+        if (!file.exists()) {
+            LogUtils.e(TAG, "File does not exist: ${file.absolutePath}")
+            return ByteArray(0)
+        }
+
+        return try {
+            FileInputStream(file).use { fileInputStream ->
+                val fileBytes = ByteArray(file.length().toInt())
+                val bytesRead = fileInputStream.read(fileBytes)
+
+                if (bytesRead < file.length()) {
+                    throw IOException("Could not read the entire file: ${file.name}")
                 }
+
+                LogUtils.i(TAG, "Successfully read file: ${file.absolutePath}")
+                fileBytes
             }
+        } catch (e: IOException) {
+            LogUtils.e(
+                TAG,
+                "Unable to readFile2BytesByStream: ${file.name}, error: ${e.localizedMessage}"
+            )
+            ByteArray(0)
         }
     }
 }

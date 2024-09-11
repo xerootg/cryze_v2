@@ -1,0 +1,5 @@
+# this has private information in it
+cameraInfo.json
+
+# Not needed in non-dev scenarios
+appsettings.json

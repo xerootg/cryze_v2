@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     fflush(stdout);
 
     // Debug print before execv
-    dprintf(STDOUT_FILENO, "Launching android /init\n");
+    dprintf(STDOUT_FILENO, "Launching android /init.\nNOTE: Logs can take a long time to start flowing, as much as 120 seconds\n");
     fflush(stdout);
 
     // Execute the /init process

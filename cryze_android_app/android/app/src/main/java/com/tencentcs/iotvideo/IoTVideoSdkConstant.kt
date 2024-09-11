@@ -1,5 +1,7 @@
 package com.tencentcs.iotvideo
 
+// The typos are bound to the JNI side
+@Suppress("SpellCheckingInspection")
 enum class AppLinkState(val value: Int) {
     APP_LINK_ONLINE(1),
     APP_LINK_OFFLINE(2),
@@ -30,16 +32,4 @@ enum class AppLinkState(val value: Int) {
             return APP_LINK_STATE_ILLEGAL
         }
     }
-}
-
-
-// These are for the native logger which needs additional RE work to use
-object LogLevel {
-    const val LOG_LEVEL_DEBUG: Int = 5
-    const val LOG_LEVEL_ERROR: Int = 2
-    const val LOG_LEVEL_FATAL: Int = 1
-    const val LOG_LEVEL_INFO: Int = 4
-    const val LOG_LEVEL_OFF: Int = 0
-    const val LOG_LEVEL_VERBOSE: Int = 6
-    const val LOG_LEVEL_WARNING: Int = 3
 }

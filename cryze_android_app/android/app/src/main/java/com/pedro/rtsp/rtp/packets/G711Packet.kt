@@ -29,8 +29,8 @@ import java.nio.ByteBuffer
 class G711Packet(
   sampleRate: Int
 ): BasePacket(
-  sampleRate.toLong(),
-  RtpConstants.payloadTypeG711
+  sampleRate.toLong()/2,
+  RtpConstants.payloadTypeG711A
 ) {
 
   init {

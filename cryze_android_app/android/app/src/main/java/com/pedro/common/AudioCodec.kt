@@ -17,5 +17,5 @@
 package com.pedro.common
 
 enum class AudioCodec {
-  G711, AAC, OPUS
+  G711, AAC, OPUS, PCMU, PCMA
 }

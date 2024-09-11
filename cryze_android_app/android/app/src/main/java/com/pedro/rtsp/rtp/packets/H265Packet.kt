@@ -31,7 +31,7 @@ import kotlin.experimental.and
  */
 class H265Packet: BasePacket(
   RtpConstants.clockVideoFrequency,
-  RtpConstants.payloadType + RtpConstants.trackVideo
+  RtpConstants.payloadTypeDynamic + RtpConstants.trackVideo
 ) {
 
   init {
@@ -105,7 +105,4 @@ class H265Packet: BasePacket(
     }
   }
 
-  override fun reset() {
-    super.reset()
-  }
 }

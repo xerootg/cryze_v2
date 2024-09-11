@@ -11,7 +11,7 @@ class AVHeader() {
 
     private var map = HashMap<String?, Any?>()
 
-    private fun getInteger(str: String): Int? {
+    fun getInteger(str: String): Int? {
         return if(containsKey(str)) map[str] as Int else null
     }
 
@@ -67,8 +67,8 @@ class AVHeader() {
     private fun setVideoRenderInfo(videoRenderInfo: VideoRenderInfo) {
         map[KEY_VIDEO_RENDER_INFO] = videoRenderInfo
     }
-
-    @SuppressWarnings("unused") // JNI
+    // JNI
+    @Suppress("unused") // JNI
     fun getVideoRenderInfo(): VideoRenderInfo? {
         return try {
             map[KEY_VIDEO_RENDER_INFO] as VideoRenderInfo?
@@ -85,6 +85,8 @@ class AVHeader() {
         return getInteger(key)?: defaultValue
     }
 
+    //JNI
+    @Suppress("unused")
     fun getString(str: String?, str2: String): String {
         val string = getString(str)
         return string ?: str2
@@ -94,6 +96,8 @@ class AVHeader() {
         return map.hashCode()
     }
 
+    // JNI
+    @Suppress("unused")
     companion object {
         const val KEY_AUDIO_BIT_WIDTH: String = "audio-bit-width"
         const val KEY_AUDIO_CODEC_OPTION: String = "audio-codec-option"

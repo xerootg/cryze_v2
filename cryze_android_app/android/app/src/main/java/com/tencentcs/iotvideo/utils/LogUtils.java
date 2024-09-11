@@ -3,6 +3,8 @@ package com.tencentcs.iotvideo.utils;
 import android.os.Build;
 import android.util.Log;
 
+import com.tencent.mars.xlog.LogLevel;
+
 // There's JNI glue that I haven't quite fully RE'd out yet.
 public class LogUtils {
     private static final int LEVEL_DEBUG = 1;
@@ -12,7 +14,7 @@ public class LogUtils {
     private static final int LEVEL_NONE = 6;
     private static final int LEVEL_VERBOSE = 0;
     private static final int LEVEL_WARNING = 3;
-    public static final String LOG_PREFIX = "IoTVideo-";
+    public static final String LOG_PREFIX = "";
     private static final long MAX_ALIVE_TIME = 172800;
     private static final String SYS_INFO;
     private static boolean isOpenConsoleLog = false;
@@ -62,6 +64,29 @@ public class LogUtils {
         return sb2.toString();
     }
 
+    public static void l(LogLevel level, String tag, String message) {
+        switch (level) {
+            case LEVEL_DEBUG:
+                d(tag, message);
+                break;
+            case LEVEL_ERROR:
+                e(tag, message);
+                break;
+            case LEVEL_FATAL:
+                f(tag, message);
+                break;
+            case LEVEL_INFO:
+                i(tag, message);
+                break;
+            case LEVEL_VERBOSE:
+                v(tag, message);
+                break;
+            case LEVEL_WARNING:
+                w(tag, message);
+                break;
+        }
+    }
+
     public static void d(String tag, String message) {
         d(tag, message, (Object[]) null);
     }
@@ -107,7 +132,7 @@ public class LogUtils {
             if (message == null) {
                 message = "";
             }
-            Log.d(tag, message);
+            Log.d(LOG_PREFIX + tag, message);
     }
 
     public static void e(String tag, String message, Object... stringArgs) {
@@ -117,7 +142,7 @@ public class LogUtils {
             if (message == null) {
                 message = "";
             }
-            Log.e(tag, message);
+            Log.e(LOG_PREFIX + tag, message);
     }
 
     public static void f(String tag, String message, Object... stringArgs) {
@@ -125,7 +150,7 @@ public class LogUtils {
             if (stringArgs != null) {
                 message = String.format(message, stringArgs);
             }
-            Log.d(tag, message);
+            Log.d(LOG_PREFIX + tag, message);
         }
     }
 
@@ -136,7 +161,7 @@ public class LogUtils {
             if (message == null) {
                 message = "";
             }
-            Log.i(tag, message);
+            Log.i(LOG_PREFIX + tag, message);
     }
 
     public static void v(String tag, String message, Object... stringArgs) {
@@ -146,7 +171,7 @@ public class LogUtils {
             if (message == null) {
                 message = "";
             }
-            Log.v(tag, message);
+            Log.v(LOG_PREFIX + tag, message);
     }
 
     public static void w(String tag, String message, Object... stringArgs) {
@@ -156,6 +181,6 @@ public class LogUtils {
             if (message == null) {
                 message = "";
             }
-            Log.w(tag, message);
+            Log.w(LOG_PREFIX + tag, message);
     }
 }

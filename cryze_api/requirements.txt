@@ -1,0 +1,3 @@
+wyze_sdk
+requests
+pythonnet==3.0.3

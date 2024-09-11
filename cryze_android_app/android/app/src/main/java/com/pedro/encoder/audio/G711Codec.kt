@@ -20,6 +20,7 @@ import kotlin.experimental.inv
 /**
  * G711A (pcm-alaw) encoder/decoder
  */
+//TODO: look into using this to reencapsulate ulawwb into something more standard
 class G711Codec {
 
   fun configure(sampleRate: Int, channels: Int) {

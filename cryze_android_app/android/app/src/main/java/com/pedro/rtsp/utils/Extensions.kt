@@ -33,10 +33,19 @@ fun ByteBuffer.getData(): ByteArray {
   return bytes
 }
 
+/**
+ * Sets a long value into a byte array starting from a specified index.
+ *
+ * @param n The long value to set.
+ * @param begin The starting index in the byte array.
+ * @param end The ending index in the byte array.
+ */
 fun ByteArray.setLong(n: Long, begin: Int, end: Int) {
   var value = n
   for (i in end - 1 downTo begin step 1) {
+    // Set the byte at index i to the least significant byte of value
     this[i] = (value % 256).toByte()
+    // Right shift value by 8 bits to process the next byte
     value = value shr 8
   }
 }

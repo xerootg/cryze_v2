@@ -149,6 +149,12 @@ class RtspClient(private val connectChecker: ConnectChecker) {
     return validReason && reTries > 0
   }
 
+    fun setVideoInfo(sps: ByteArray, pps: ByteArray?, vps: ByteArray?) {
+        Log.i(TAG, "send sps and pps")
+        commandsManager.setVideoInfo(sps, pps, vps)
+        if (mutex.isLocked) runCatching { mutex.unlock() }
+    }
+
   fun setVideoInfo(sps: ByteBuffer, pps: ByteBuffer?, vps: ByteBuffer?) {
     Log.i(TAG, "send sps and pps")
     commandsManager.setVideoInfo(sps, pps, vps)
@@ -162,12 +168,16 @@ class RtspClient(private val connectChecker: ConnectChecker) {
   fun setVideoCodec(videoCodec: VideoCodec) {
     if (!isStreaming) {
       commandsManager.videoCodec = videoCodec
+    } else {
+        Log.e(TAG, "setVideoCodec: can't set video codec while streaming")
     }
   }
 
   fun setAudioCodec(audioCodec: AudioCodec) {
     if (!isStreaming) {
       commandsManager.audioCodec = audioCodec
+    } else {
+        Log.e(TAG, "setAudioCodec: can't set audio codec while streaming")
     }
   }
 
@@ -452,6 +462,8 @@ class RtspClient(private val connectChecker: ConnectChecker) {
   fun sendAudio(aacBuffer: ByteBuffer, info: MediaCodec.BufferInfo) {
     if (!commandsManager.audioDisabled) {
       rtspSender.sendAudioFrame(aacBuffer, info)
+    } else {
+      Log.e(TAG, "sendAudio: audio disabled")
     }
   }
 

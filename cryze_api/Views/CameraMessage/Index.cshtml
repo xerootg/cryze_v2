@@ -1,0 +1,36 @@
+@model Cryze.API.ViewModels.CameraMessageViewModel;
+@{
+    Layout = "_Layout";
+    
+}
+
+<h1>Camera Messages</h1>
+
+<div id="jsoneditor"></div>
+
+    <script type="module">
+        // TODO: pull this into static files
+      import { JSONEditor } from 'https://cdn.jsdelivr.net/npm/vanilla-jsoneditor/standalone.js'
+
+      let content = {
+        text: undefined,
+        json: @Html.Raw(@Model.GetJson()),
+      }
+
+      const editor = new JSONEditor({
+        target: document.getElementById('jsoneditor'),
+        props: {
+          content,
+          readOnly: true,
+          mode: 'tree',
+          onChange: (updatedContent, previousContent, { contentErrors, patchResult }) => {
+            // content is an object { json: JSONValue } | { text: string }
+            console.log('onChange', { updatedContent, previousContent, contentErrors, patchResult })
+            content = updatedContent
+          }
+        }
+      })
+
+      // use methods get, set, update, and onChange to get data in or out of the editor.
+      // Use updateProps to update properties.
+    </script>

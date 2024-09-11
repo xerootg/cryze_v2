@@ -1,2 +1,0 @@
-wyze_sdk
-requests

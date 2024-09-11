@@ -1,7 +1,9 @@
 package com.tencentcs.iotvideo.iotvideoplayer
 
+import com.github.xerootg.cryze.httpclient.responses.AccessCredential
 import com.tencentcs.iotvideo.IoTVideoSdk.PREFIX_THIRD_ID
 import com.tencentcs.iotvideo.iotvideoplayer.PlayerState.Companion.fromInt
+import com.tencentcs.iotvideo.iotvideoplayer.codec.IAudioDecoder
 import com.tencentcs.iotvideo.iotvideoplayer.codec.IVideoDecoder
 import com.tencentcs.iotvideo.iotvideoplayer.codec.NullAudioDecoder
 import com.tencentcs.iotvideo.iotvideoplayer.player.PlayerUserData
@@ -13,9 +15,22 @@ import com.tencentcs.iotvideo.utils.LogUtils
 class IoTVideoPlayer(
     deviceId: String,
     videoDecoder: IVideoDecoder,
+    audioDecoder: IAudioDecoder,
     statusListener: IStatusListener,
     errorListener: IErrorListener
 ) : IoTVideoPlayerNativeBase(TAG) {
+
+    // Allow no audiodecoder to be passed in.
+    constructor(deviceId: String,
+                videoDecoder: IVideoDecoder,
+                statusListener: IStatusListener,
+                errorListener: IErrorListener)
+            : this(
+                deviceId,
+                videoDecoder,
+                NullAudioDecoder(),
+                statusListener,
+                errorListener)
 
     // the stubbed implementations are in the base init, the ones doing actual work are here.
     init{
@@ -36,6 +51,7 @@ class IoTVideoPlayer(
         })
 
         // same as IErrorListener, call on the main thread
+        // note: sharing the IConnectedDevStateListener with the IStatusListener
         nativeSetStatusListener(object : IStatusListener {
             override fun onStatus(state: PlayerState) {
                 if (isMainThread) {
@@ -48,6 +64,22 @@ class IoTVideoPlayer(
             }
         })
 
+        // be aware of redundancy when using:
+        // IStatusListener is called for identical states often
+        // unfortunately, initial connect PLAY state is not one of them
+        // TODO: I *think* this is supposed to be connected to the Subscribe event
+        nativeSetConnectDevStateListener {
+            IConnectDevStateListener { statusCode ->
+                if (isMainThread) {
+                    statusListener.onStatus(statusCode)
+                } else {
+                    mMainHandler.post {
+                        statusListener.onStatus(statusCode)
+                    }
+                }
+            }
+        }
+
         // The renderers are stubbed because the playback is ignored.
         // the raw AV stream is passed through the decoder instead.
         nativeSetVideoRender(NullVideoRenderer())
@@ -57,7 +89,16 @@ class IoTVideoPlayer(
         // you'll need an outer muxer to handle recombining the audio
         // and video streams and I don't use audio and it is difficult
         // to get right
-        nativeSetAudioDecoder(NullAudioDecoder())
+        nativeSetAudioDecoder(audioDecoder)
+
+        if(audioDecoder is NullAudioDecoder)
+        {
+            nativeMute(true)
+        }
+        else
+        {
+            nativeMute(false)
+        }
 
         // This is where we can grab raw video frames and pass them to our own socket
         nativeSetVideoDecoder(videoDecoder)
@@ -134,8 +175,14 @@ class IoTVideoPlayer(
     override fun innerRelease() {
     }
 
-    override fun updateAccessIdAndToken(j10: Long, str: String?) {
-        nativeUpdateAccessIdAndToken(j10, str)
+    fun updateToken(credential: AccessCredential)
+    {
+        nativeUpdateAccessIdAndToken(credential.accessId, credential.accessToken)
+        LogUtils.i(TAG, "Token updated")
+    }
+
+    override fun updateAccessIdAndToken(accessId: Long, token: String?) {
+        nativeUpdateAccessIdAndToken(accessId, token)
         LogUtils.i(TAG, "Updated: AccessIdAndToken")
     }
 

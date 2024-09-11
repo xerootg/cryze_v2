@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"]</title>
+    <script src="~/lib/bootstrap/Scripts/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/Content/bootstrap.min.css">
+</head>
+
+<body>
+    @* Nav bar *@
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link @(Context.Request.Path == "/" ? "active" : "")" href="/">Home</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Context.Request.Path == "/Settings" ? "active" : "")" href="/Settings">Settings</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Context.Request.Path == "/Camera" ? "active" : "")" href="/Camera">Cameras</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Context.Request.Path == "/CameraMessage" ? "active" : "")" href="/CameraMessage">Camera Messages</a>
+        </li>
+    </ul>
+    <div class="container">
+        @if (TempData["Warning"] != null)
+
+        {
+            <div class="alert alert-warning">
+                @TempData["Warning"]
+            </div>
+        }
+        @RenderBody()
+    </div>
+</body>
+
+</html>

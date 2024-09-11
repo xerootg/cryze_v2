@@ -104,9 +104,23 @@ class RtspSender(
 
   fun setAudioInfo(sampleRate: Int) {
     audioPacket = when (commandsManager.audioCodec) {
-      AudioCodec.G711 -> G711Packet(sampleRate)
-      AudioCodec.AAC -> AacPacket(sampleRate)
-      AudioCodec.OPUS -> OpusPacket(sampleRate)
+      AudioCodec.G711 -> {
+          Log.i(TAG, "G711 configured, sampleRate: $sampleRate")
+          G711Packet(sampleRate)
+      }
+      AudioCodec.AAC -> {
+          Log.i(TAG, "AAC configured, sampleRate: $sampleRate")
+          AacPacket(sampleRate)
+      }
+      AudioCodec.OPUS -> {
+          Log.i(TAG, "OPUS configured, sampleRate: $sampleRate")
+          OpusPacket(sampleRate)
+      }
+        AudioCodec.PCMA,
+        AudioCodec.PCMU -> {
+            Log.i(TAG, "PCMU configured, sampleRate: $sampleRate")
+            DynamicAudioPacket(sampleRate)
+        }
     }
   }
 

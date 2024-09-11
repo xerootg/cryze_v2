@@ -40,7 +40,7 @@ import java.nio.ByteBuffer
  */
 class Av1Packet: BasePacket(
   RtpConstants.clockVideoFrequency,
-  RtpConstants.payloadType + RtpConstants.trackVideo
+  RtpConstants.payloadTypeDynamic + RtpConstants.trackVideo
 ) {
 
   private val parser = Av1Parser()
@@ -100,11 +100,7 @@ class Av1Packet: BasePacket(
     }
   }
 
-  override fun reset() {
-    super.reset()
-  }
-
-  private fun generateAv1AggregationHeader(isKeyFrame: Boolean, isFirstPacket: Boolean, isLastPacket: Boolean, numObu: Int): Byte {
+    private fun generateAv1AggregationHeader(isKeyFrame: Boolean, isFirstPacket: Boolean, isLastPacket: Boolean, numObu: Int): Byte {
     val z = if (isFirstPacket) 0 else 1
     val y = if (isLastPacket) 0 else 1
     val w = numObu

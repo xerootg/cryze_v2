@@ -1,5 +1,6 @@
 package com.tencentcs.iotvideo.messageparsers
 
+import com.github.xerootg.cryze.httpclient.CryzeHttpClient
 import com.tencentcs.iotvideo.messagemgr.IModelListener
 import com.tencentcs.iotvideo.messagemgr.MessageType
 import com.tencentcs.iotvideo.messagemgr.ModelMessage
@@ -14,6 +15,9 @@ class DefaultModelMessageListener(private val cameraId: String) : IModelListener
         if (modelMessage == null) return
 
         if (modelMessage.device != cameraId) return
+
+        // Send the message to the Cryze backend. This is a yeet and forget operation.
+        CryzeHttpClient.postCameraModelMessage(cameraId, modelMessage)
 
         var logMessage = modelMessage.getPrettyMessage()
 

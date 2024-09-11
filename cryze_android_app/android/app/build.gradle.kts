@@ -1,17 +1,17 @@
-import org.jetbrains.kotlin.cli.js.internal.main
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
 
 android {
-    namespace = "com.tencentcs.iotvideo"
+    namespace = "com.github.xerootg.cryze"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.tencentcs.iotvideo"
+        applicationId = "com.github.xerootg.cryze"
         minSdk = 24
+        // The IoTVideoSDK constrains this a bit
+        //noinspection OldTargetApi
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -20,13 +20,16 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        // current IoTVideoSDK was built for NDK r20e, arm64-v8a
         ndk {
             //noinspection ChromeOsAbiSupport
             abiFilters += "arm64-v8a"
         }
 
         val backendUrl = System.getenv("CRYZE_BACKEND_URL") ?: "http://cryze_api:8080"
+        val rtspServer = System.getenv("CRYZE_RTSP_SERVER") ?: "localhost"
         buildConfigField("String", "CRYZE_BACKEND_URL", "\"$backendUrl\"")
+        buildConfigField("String", "CRYZE_RTSP_SERVER", "\"$rtspServer\"")
     }
     buildFeatures{
         buildConfig = true
@@ -63,6 +66,10 @@ android {
             excludes += "META-INF/*.RSA"
             excludes += "META-INF/*.properties"
         }
+    }
+    lint {
+        checkOnly += "UnusedResources"
+        abortOnError = false
     }
 }
 

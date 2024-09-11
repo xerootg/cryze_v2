@@ -3,8 +3,45 @@ networks:
     driver: bridge
 
 services:
-  cryze_api:
+  mediamtx:
+    image: bluenviron/mediamtx:latest-ffmpeg
+    network_mode: service:cryze_android_app
+    privileged: true
+    environment:
+      MTX_WEBRTCADDITIONALHOSTS: <Your IP Address>
+  cryze_android_app:
     restart: unless-stopped
+    networks:
+      - cryze_network
+    build:
+      context: ./cryze_android_app
+      dockerfile: Dockerfile
+      args:
+        CRYZE_RTSP_SERVER: "localhost"
+        CRYZE_BACKEND_URL: "http://cryze_api:8080" # change if you want to host on a different machine
+    privileged: true
+    ports:
+      - 5555:5555
+    # mediamtx ports
+      - 8554:8554 # RTSP feeds
+      - 8888:8888 # HLS
+      - 8889:8889/tcp # WebRTC
+      - 8189:8189/udp # WebRTC over udp
+    command:
+    # arch specifics, see the redroid docs
+      - androidboot.use_memfd=1
+    # critical for redroid to be able to resolve DNS queries for containerized services
+      - androidboot.redroid_net_ndns=1
+      - androidboot.redroid_net_dns1=127.0.0.11
+    # not really used but it doesn't hurt to have it. Might save a smidge of CPU at times.
+      - androidboot.redroid_gpu_mode=host
+      - androidboot.redroid_gpu_node=/dev/dri/renderD128
+  cryze_api:
+    ## volume mount /data
+    ## make sure .env is updated
+    restart: unless-stopped
+    volumes:
+      - cryze_api_cryze_data:/data
     networks:
       - cryze_network
     build:
@@ -15,24 +52,5 @@ services:
     env_file:
       - .env
 
-  cryze_android_app:
-    restart: unless-stopped
-    networks:
-      - cryze_network
-    build:
-      context: ./cryze_android_app
-      dockerfile: Dockerfile
-      args:
-        CRYZE_BACKEND_URL: "http://cryze_api:8080" # change if you want to host on a different machine
-    privileged: true
-    ports:
-      - 5555:5555
-    entrypoint: # need to override the entrypoint to run the app on arch, see the redroid docs
-      - /system/bin/launcher
-      - qemu=1
-      - androidboot.hardware=redroid
-      - androidboot.use_memfd=1
-      - androidboot.redroid_net_ndns=1
-      - androidboot.redroid_net_dns1=127.0.0.11
-      - androidboot.redroid_gpu_mode=host
-      - androidboot.redroid_gpu_node=/dev/dri/renderD128
+volumes:
+  cryze_api_cryze_data: # used for storing custom camera routes, wyze_sdk credentials/refresh tokens

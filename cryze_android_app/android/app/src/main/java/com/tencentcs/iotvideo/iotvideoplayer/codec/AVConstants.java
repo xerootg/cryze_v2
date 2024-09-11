@@ -46,8 +46,8 @@ public class AVConstants {
     public static final int AUDIO_SAMPLE_RATE_8000 = 8000;
     public static final int AUDIO_SAMPLE_RATE_88200 = 88200;
     public static final int AUDIO_SAMPLE_RATE_96000 = 96000;
-    public static final int AUDIO_SOUND_MODE_MONO = 0;
-    public static final int AUDIO_SOUND_MODE_NONE = 2;
+    public static final int AUDIO_SOUND_MODE_NONE = 0;
+    public static final int AUDIO_SOUND_MODE_MONO = 2;
     public static final int AUDIO_SOUND_MODE_STEREO = 1;
     public static final int AUDIO_TYPE_G711A = 1;
     public static final int AUDIO_TYPE_G711U = 2;

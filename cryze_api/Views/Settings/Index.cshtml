@@ -1,0 +1,28 @@
+@model Cryze.API.ViewModels.SettingsViewModel
+@{
+    Layout = "_Layout";
+}
+
+<h1>Settings</h1>
+<form>
+    <input type="submit" class="btn btn-danger btn-block" formaction="/Settings/UpdateSettingsFromEnvironment"
+        formmethod="post" value="Load from Environment Variables" />
+</form>
+<form method="post" enctype="multipart/form-data">
+    <div class="form-group">
+        <br />
+        <label for="apiKey">Wyze Account</label>
+        <input name="Email" required="true" placeholder="Your account's email addres" class="form-control" type="text"
+            value="@Model.Settings.Email" />
+        <input name="Password" required="true" placeholder="Your account's password" class="form-control" type="password"
+            value="@Model.Settings.Password" />
+        <br />
+        These values are your API credentials from the <a href="https://developer-api-console.wyze.com/#/apikey/view"
+            target="_blank">Wyze Developer Portal (opens in new tab)</a>
+        <input name="KeyId" required="true" placeholder="Your account's Key ID, usually a GUID" class="form-control" type="text"
+            value="@Model.Settings.KeyId" />
+        <input name="ApiKey" placeholder="Your account's API Key, a long string of random characters"
+            class="form-control" required="true" type="text" value="@Model.Settings.ApiKey" />
+    </div>
+    <input type="submit" class="btn btn-primary" formaction="/Settings" formmethod="post" value="Update" />
+</form>

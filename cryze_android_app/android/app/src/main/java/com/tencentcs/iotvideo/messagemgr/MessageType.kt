@@ -1,5 +1,6 @@
 package com.tencentcs.iotvideo.messagemgr
 
+@Suppress("UNUSED_PARAMETER")
 enum class MessageType(type: Int) {
     MSG_TYPE_EVENT(0),
     MSG_TYPE_PRO_CONST(1),

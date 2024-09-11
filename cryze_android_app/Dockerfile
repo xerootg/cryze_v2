@@ -79,6 +79,8 @@ RUN mkdir -p $GRADLE_USER_HOME && \
 COPY ./android /app 
 ARG CRYZE_BACKEND_URL "http://cryze_api:8080"
 ENV CRYZE_BACKEND_URL=$CRYZE_BACKEND_URL
+ARG CRYZE_RTSP_SERVER "localhost"
+ENV CRYZE_RTSP_SERVER=$CRYZE_RTSP_SERVER
 # produce a debug apk
 RUN chmod +x gradlew && \
     ./gradlew --no-daemon assembleDebug && \
@@ -110,28 +112,30 @@ COPY fork_logger/ .
 
 # Compile the binary statically
 RUN gcc -static -o launcher main.c
-RUN gcc -static -o dockercat dockercat.c
 
 ## final image
 FROM redroid/redroid:11.0.0-latest
 #SHELL ["/system/bin/busybox", "ash", "-c"]
 
+# used to redirect the /init stdout handle to in-container fifo pipe
 COPY --from=launcher-builder --chmod=777 /app/launcher /system/bin/launcher
-COPY --from=launcher-builder --chmod=777 /app/dockercat /system/bin/dockercat
-## named zzdockercat so it is loaded after logcat. rc files are alphabetized at load time
-COPY --chmod=644 fork_logger/dockercat.rc /vendor/etc/init/zzdockercat.rc
+## logger service pieces
+COPY --chmod=644 fork_logger/dockercat.rc /vendor/etc/init/dockercat.rc
+COPY --chmod=777 fork_logger/log_watcher.sh /system/bin/log_watcher.sh
 
 # copy the libhoudini files so we can use arm64 translation
+# definitely want to remove this on arm64 hosts
 COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/lib/libhoudini.so /system/lib/libhoudini.so
 COPY --from=libhoudini-builder /tmp/libhoudini-package-3.0/src/system/lib64/libhoudini.so /system/lib64/libhoudini.so
 
-# add busybox
+# add busybox, used for all kinds of things in this gigantic "hack"
 COPY --from=busybox-builder /busybox/x86_64/bin/busybox /system/bin/busybox
 
-# setup eth1 to use dhcp, this will be our physical connection to the network containing wyze cameras
-COPY --chmod=755 docker_contents/udhcpc.script /system/etc/udhcpc.script
-
-# copy the apk and install script
+# copy the apk, service definitions, and the scrip that installs, launches and restarts the app
 COPY --chmod=644 docker_contents/install.app.rc /vendor/etc/init/install.app.rc
+# to cause this script to exit, setprop breakloop 1
 COPY --chmod=777 docker_contents/ensure_running.sh /system/bin/ensure_running.sh
 COPY --from=app-builder /app/app.apk /app/app.apk
+
+# use the rewritten entrypoint to capture logs into docker
+ENTRYPOINT [ "/system/bin/launcher","qemu=1","androidboot.hardware=redroid" ]

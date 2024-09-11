@@ -30,7 +30,7 @@ class OpusPacket(
   sampleRate: Int
 ): BasePacket(
   sampleRate.toLong(),
-  RtpConstants.payloadType + RtpConstants.trackAudio
+  RtpConstants.payloadTypeDynamic + RtpConstants.trackAudio
 ) {
 
   init {

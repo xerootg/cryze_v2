@@ -1,18 +1,19 @@
 package com.tencent.mars.xlog;
 
-/* loaded from: iotvideo-release.aar:classes.jar:com/tencent/mars/xlog/ILogger.class */
+// This is used by JNI (libmarsxlog) to log. The structure must remain unchanged.
+@SuppressWarnings("unused")
 public interface ILogger {
-    void logV(String str, String str2, String str3, int i, int i2, long j, long j2, String str4);
+    void logV(String tag, String filename, String funcname, int line, int pid, long tid, long maintid, String log);
 
-    void logI(String str, String str2, String str3, int i, int i2, long j, long j2, String str4);
+    void logI(String tag, String filename, String funcname, int line, int pid, long tid, long maintid, String log);
 
-    void logD(String str, String str2, String str3, int i, int i2, long j, long j2, String str4);
+    void logD(String tag, String filename, String funcname, int line, int pid, long tid, long maintid, String log);
 
-    void logW(String str, String str2, String str3, int i, int i2, long j, long j2, String str4);
+    void logW(String tag, String filename, String funcname, int line, int pid, long tid, long maintid, String log);
 
-    void logE(String str, String str2, String str3, int i, int i2, long j, long j2, String str4);
+    void logE(String tag, String filename, String funcname, int line, int pid, long tid, long maintid, String log);
 
-    void logF(String str, String str2, String str3, int i, int i2, long j, long j2, String str4);
+    void logF(String tag, String filename, String funcname, int line, int pid, long tid, long maintid, String log);
 
     int getLogLevel();
 

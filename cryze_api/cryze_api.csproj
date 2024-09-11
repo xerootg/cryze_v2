@@ -7,7 +7,20 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SharpRTSPServer" Version="0.0.3" />
+    <PackageReference Include="bootstrap" Version="5.3.3" />
+    <!-- Used for clr access to wyze_sdk -->
+    <PackageReference Include="pythonnet" Version="3.1.0-preview2024-09-06" />
+    <!-- for parsing .env files into IConfiguration -->
+    <PackageReference Include="DotNetEnv" Version="3.1.1" />
+    <!-- moq for lulz-->
+    <PackageReference Include="Moq" Version="4.16.1" />
   </ItemGroup>
+
+  <Target Name="CopyBootstrap" AfterTargets="Build">
+    <ItemGroup>
+      <BootstrapFiles Include="$(NuGetPackageRoot)bootstrap\5.3.3\content\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(BootstrapFiles)" DestinationFolder="wwwroot\lib\bootstrap\%(RecursiveDir)" />
+  </Target>
 
 </Project>

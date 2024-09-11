@@ -1,0 +1,58 @@
+@model Cryze.API.ViewModels.CameraViewModel
+@{
+    Layout = "_Layout";
+}
+<table class="table">
+    <thead>
+        <tr>
+            <th scope="col">Device ID</th>
+            <th scope="col">Stream Name</th>
+            <th scope="col"></th>
+            <th scope="col"></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var camera in Model.Cameras)
+        {
+            <tr>
+                <form method="post" enctype="multipart/form-data">
+                    <th scope="row">
+                        <input class="form-control" type="text" name="DeviceId" value="@camera.DeviceId" />
+                    </th>
+                    <td>
+                        <input class="form-control" type="text" name="StreamName" value="@camera.StreamName" />
+                    </td>
+                    <td>
+                        <input type="submit" class="btn btn-primary" formaction="/Camera/AddOrUpdate" formmethod="post" value="Update" />
+                    </td>
+                    <td>
+                        <input type="submit" class="btn btn-danger" formaction="/Camera/Delete" formmethod="post" value="Delete" />
+                    </td>
+                </form>
+            </tr>
+        }
+        <tr>
+            <form method="post" enctype="multipart/form-data">
+                <th scope="row">
+                    <input type="text" name="DeviceId" placeholder="Device ID" />
+                </th>
+                <td>
+                    <input type="text" name="StreamName" placeholder="default:(live/DeviceId)" />
+                </td>
+                <td>
+                    <input class="btn btn-success" formaction="/Camera/AddOrUpdate" type="submit" value="Add" />
+                </td>
+            </form>
+        </tr>
+    </tbody>
+    <form method="post" enctype="multipart/form-data">
+        <tfoot>
+            <tr>
+                <td>
+                    <p1>Sync from Wyze</p1>
+                    ⚠️Warning: this will delete all cameras not associated with your Wyze account.⚠️
+                    <input type="submit" class="btn btn-primary" formaction="/Camera/GetAllSupportedCameras" formmethod="post" value="Sync from Wyze" />
+                </td>
+            </tr>
+        </tfoot>
+</table>

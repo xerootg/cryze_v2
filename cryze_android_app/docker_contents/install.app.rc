@@ -1,2 +1,5 @@
+# note, this is effectivly a one-shot. it only triggers
+# when the property changes to the state =1
+
 on property:sys.boot_completed=1
     exec -- /system/bin/sh /system/bin/ensure_running.sh

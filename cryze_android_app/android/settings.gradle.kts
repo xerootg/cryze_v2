@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "CustomNativeIotVideo"
+rootProject.name = "CryzeRestreamer"
 include(":app")
