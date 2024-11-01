@@ -38,7 +38,7 @@ docker compose up -d
 you can view the android container over adb with something like scrcpy: `scrcpy -s localhost:5555` - that repo is [here](https://github.com/Genymobile/scrcpy)
 
 ## Support
-File an issue with as much detail as you can. I have limited time to work on this, but I'll try to help.
+File an issue with as much detail as you can. I have limited time to work on this, but I'll try to help. I've replaced my wyze-gwell cameras with tapo c120's for better low-light support and native RTSP, but I will attempt to repro anything you might run into.
 
 ## Development
 I am using Android Studio for the android app, and just attaching to my remote docker-hosted `redroid` container (`adb connect [arch box ip address]:5555`). debugging/remote builds work, but container reboots will not persist your `/data` partition, so be sure to rebuild/restart with updated sources. If you need to stop the running cryze version, `adb shell setprop breakloop 1` will stop the loop that ensures cryze is running. You'll need to uninstall the current version to install your local build and android studio isn't very good at figuring this out.
